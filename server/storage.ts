@@ -128,12 +128,27 @@ export class DatabaseStorage implements IStorage {
   
   async updateUser(id: string, userData: any): Promise<any | undefined> {
     try {
+      // If id is not a valid MongoDB ObjectId format, return undefined
+      // This prevents casting errors when id is undefined or invalid
+      if (!id || id === "-1" || id === "undefined" || id.length !== 24) {
+        console.error("Invalid user ID for update:", id);
+        return undefined;
+      }
+      
+      console.log("Updating user with ID:", id, "userData:", userData);
+      
       const updatedUser = await User.findByIdAndUpdate(
         id,
         { $set: userData },
         { new: true }
       );
-      return updatedUser?.toObject();
+      
+      if (!updatedUser) {
+        console.error("No user found with ID:", id);
+        return undefined;
+      }
+      
+      return updatedUser.toObject();
     } catch (error) {
       console.error("Error updating user:", error);
       return undefined;
