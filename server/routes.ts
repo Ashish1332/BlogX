@@ -1121,6 +1121,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Special public user endpoint for message user information
+  app.get("/api/users/message/:userId", async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      
+      // Early validation of userId before any DB operations
+      if (!userId || userId === "undefined" || userId === "-1" || userId.length !== 24) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return just enough user data for message display
+      res.json({
+        _id: user._id,
+        username: user.username,
+        displayName: user.displayName,
+        profileImage: user.profileImage
+      });
+    } catch (error) {
+      console.error("Error fetching message user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   app.get("/api/messages/:userId", isAuthenticated, async (req, res) => {
     try {
       if (!req.user) {

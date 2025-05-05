@@ -46,13 +46,14 @@ export default function MessagesPage() {
   const {
     data: userData
   } = useQuery({
-    queryKey: [`/api/users/${id}`],
+    queryKey: [`/api/users/message/${id}`],
     queryFn: async () => {
       if (!id) return null;
-      const res = await fetch(`/api/users/${id}`);
+      const res = await fetch(`/api/users/message/${id}`);
       if (!res.ok) throw new Error("Failed to fetch user data");
       return res.json();
     },
+    // Enable this query only when we need it (when the conversation isn't in the list)
     enabled: !!id && !!conversations && !conversations.find((c: any) => c.user._id.toString() === id.toString()),
   });
 
@@ -390,38 +391,66 @@ export default function MessagesPage() {
                         (c: any) => c.user._id.toString() === id.toString()
                       );
                       
-                      // If no matching conversation is found, make a direct API request to get user info
-                      if (!conversation) {
+                      // If we have userData from the direct API call, use that
+                      if (userData) {
                         return (
-                          <div className="flex items-center gap-3">
-                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                            <span>Loading user information...</span>
-                          </div>
+                          <>
+                            <Link href={`/profile/${id}`}>
+                              <a>
+                                <img 
+                                  src={userData.profileImage || "https://via.placeholder.com/40"} 
+                                  alt={userData.displayName} 
+                                  className="w-10 h-10 rounded-full object-cover" 
+                                />
+                              </a>
+                            </Link>
+                            <div>
+                              <Link href={`/profile/${id}`}>
+                                <a className="font-semibold hover:underline">
+                                  {userData.displayName}
+                                </a>
+                              </Link>
+                              <p className="text-xs text-muted-foreground">
+                                @{userData.username}
+                              </p>
+                            </div>
+                          </>
                         );
                       }
                       
-                      return (
-                        <>
-                          <Link href={`/profile/${id}`}>
-                            <a>
-                              <img 
-                                src={conversation.user.profileImage || "https://via.placeholder.com/40"} 
-                                alt={conversation.user.displayName} 
-                                className="w-10 h-10 rounded-full object-cover" 
-                              />
-                            </a>
-                          </Link>
-                          <div>
+                      // If we found a matching conversation, use that
+                      if (conversation) {
+                        return (
+                          <>
                             <Link href={`/profile/${id}`}>
-                              <a className="font-semibold hover:underline">
-                                {conversation.user.displayName}
+                              <a>
+                                <img 
+                                  src={conversation.user.profileImage || "https://via.placeholder.com/40"} 
+                                  alt={conversation.user.displayName} 
+                                  className="w-10 h-10 rounded-full object-cover" 
+                                />
                               </a>
                             </Link>
-                            <p className="text-xs text-muted-foreground">
-                              @{conversation.user.username}
-                            </p>
-                          </div>
-                        </>
+                            <div>
+                              <Link href={`/profile/${id}`}>
+                                <a className="font-semibold hover:underline">
+                                  {conversation.user.displayName}
+                                </a>
+                              </Link>
+                              <p className="text-xs text-muted-foreground">
+                                @{conversation.user.username}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      }
+                      
+                      // If neither data source is available
+                      return (
+                        <div className="flex items-center gap-3">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                          <span>Loading user information...</span>
+                        </div>
                       );
                     })()}
                   </>
