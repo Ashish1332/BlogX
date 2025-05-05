@@ -806,6 +806,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  app.get("/api/users/:id/is-following", isAuthenticated, async (req, res) => {
+    try {
+      // For MongoDB, use the string ID directly
+      const targetUserId = req.params.id;
+      console.log("Checking if current user is following target user:", targetUserId);
+      
+      // For MongoDB, use the _id property
+      const currentUserId = req.user._id?.toString();
+      console.log("Current user ID:", currentUserId);
+      
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Check if the current user is following the target user
+      const isFollowing = await storage.isFollowing(currentUserId, targetUserId);
+      console.log(`isFollowing check result: ${isFollowing}`);
+      
+      res.json({ isFollowing });
+    } catch (error) {
+      console.error("Error checking follow status:", error);
+      res.status(500).json({ message: "Failed to check follow status" });
+    }
+  });
+  
   app.get("/api/users/:id/following", async (req, res) => {
     try {
       // For MongoDB, use the string ID directly
