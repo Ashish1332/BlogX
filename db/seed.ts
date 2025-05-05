@@ -1,4 +1,4 @@
-import { db, User, Blog, Comment, Like, Bookmark, Follower } from "./index";
+import { db, User, Blog, Comment, Like, Bookmark, Follower, Notification, Message } from "./index";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import mongoose from "mongoose";
@@ -15,54 +15,58 @@ async function seed() {
   try {
     console.log("Starting seed...");
 
-    // Check if users already exist
-    const existingUsers = await User.find();
-    if (existingUsers.length > 0) {
-      console.log("Data already exists, skipping seed");
-      return;
-    }
+    // Delete all existing data
+    console.log("Deleting existing data...");
+    await User.deleteMany({});
+    await Blog.deleteMany({});
+    await Comment.deleteMany({});
+    await Like.deleteMany({});
+    await Bookmark.deleteMany({});
+    await Follower.deleteMany({});
+    await Notification.deleteMany({});
+    await Message.deleteMany({});
 
     // Create sample users
     const usersData = [
       {
-        username: "sarahwilson",
-        password: await hashPassword("password123"),
-        displayName: "Sarah Wilson",
+        username: "ashish",
+        password: await hashPassword("ashish"),
+        displayName: "Ashish",
         bio: "Digital marketing specialist and tech enthusiast. Writing about remote work, productivity, and industry trends.",
         profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
       },
       {
-        username: "davidtech",
-        password: await hashPassword("password123"),
-        displayName: "David Chen",
+        username: "pranav",
+        password: await hashPassword("pranav"),
+        displayName: "Pranav",
         bio: "Software engineer and AI enthusiast. Exploring the intersection of technology and human creativity.",
         profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
       },
       {
-        username: "emilyreads",
-        password: await hashPassword("password123"),
-        displayName: "Emily Parker",
+        username: "pranjal",
+        password: await hashPassword("pranjal"),
+        displayName: "Pranjal",
         bio: "Book lover, business consultant, and lifelong learner. Sharing insights on leadership and personal growth.",
         profileImage: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
       },
       {
-        username: "alexjohnson",
-        password: await hashPassword("password123"),
-        displayName: "Alex Johnson",
+        username: "kunal",
+        password: await hashPassword("kunal"),
+        displayName: "Kunal",
         bio: "Product manager and design enthusiast. Passionate about creating user-centered experiences that make a difference.",
         profileImage: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
       },
       {
-        username: "markanderson",
-        password: await hashPassword("password123"),
-        displayName: "Mark Anderson",
+        username: "shreya",
+        password: await hashPassword("shreya"),
+        displayName: "Shreya",
         bio: "Entrepreneur and startup advisor. Helping founders navigate the challenges of building successful businesses.",
         profileImage: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
       },
       {
-        username: "rebeccawrites",
-        password: await hashPassword("password123"),
-        displayName: "Rebecca Lee",
+        username: "aryan",
+        password: await hashPassword("aryan"),
+        displayName: "Aryan",
         bio: "Content creator and social media strategist. Crafting compelling stories that engage and inspire audiences.",
         profileImage: "https://images.unsplash.com/photo-1607746882042-944635dfe10e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
       }
