@@ -151,6 +151,12 @@ export class DatabaseStorage implements IStorage {
   
   async getBlogsByUser(userId: string, limit = 10, offset = 0): Promise<any[]> {
     try {
+      // If userId is not a valid MongoDB ObjectId format, return empty array
+      // This prevents casting errors when userId is undefined or invalid
+      if (!userId || userId === "-1" || userId === "undefined" || userId.length !== 24) {
+        return [];
+      }
+      
       const blogs = await Blog.find({ author: userId })
         .populate('author')
         .sort({ createdAt: -1 })

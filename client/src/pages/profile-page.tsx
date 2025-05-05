@@ -46,7 +46,8 @@ export default function ProfilePage() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const userId = id || (currentUser?._id || currentUser?.id || "");
+  // Don't use empty string as a fallback, as it would cause MongoDB ObjectID casting errors
+  const userId = id || (currentUser?._id || currentUser?.id);
   const isOwnProfile = (currentUser?._id === userId) || (currentUser?.id === userId);
 
   const [activeTab, setActiveTab] = useState<"blogs" | "replies" | "media" | "likes">("blogs");
@@ -59,7 +60,7 @@ export default function ProfilePage() {
     refetch: refetchProfile
   } = useQuery({
     queryKey: [`/api/users/${userId}`],
-    enabled: !!userId,
+    enabled: !!userId && userId !== "undefined",
   });
 
   // Fetch user's blogs
@@ -70,7 +71,7 @@ export default function ProfilePage() {
     refetch: refetchBlogs
   } = useQuery({
     queryKey: [`/api/blogs/user/${userId}`],
-    enabled: !!userId && activeTab === "blogs",
+    enabled: !!userId && userId !== "undefined" && activeTab === "blogs",
   });
 
   // Follow/unfollow mutation
