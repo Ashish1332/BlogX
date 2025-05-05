@@ -1,4 +1,8 @@
-import { db, User, Blog, Comment, Like, Bookmark, Follower, Notification, Message } from "./index";
+import { db } from "./index";
+import {
+  User, Blog, Comment, Like, Bookmark, Follower, 
+  Notification, Message
+} from "./models";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import mongoose from "mongoose";
@@ -180,14 +184,14 @@ async function seed() {
       { content: "I'm curious how companies are handling the time zone challenges with remote teams. Any tips?", user: users[1]._id, blog: blogs[0]._id },
       { content: "This resonates with me so much. I'm using Copilot daily, and while it's helpful, it's definitely not replacing my job anytime soon!", user: users[0]._id, blog: blogs[1]._id },
       { content: "I'd add that understanding legacy code is another area where AI struggles. Context and history matter so much in real-world codebases.", user: users[4]._id, blog: blogs[1]._id },
-      { content: "Just ordered 'Zero to One' based on your recommendation. I've been stuck in incremental thinking lately and need a fresh perspective.", user: users[0]._id, blog: blogs[2]._id },
       { content: "I'd add 'Range' by David Epstein to this list. It changed how I think about expertise and skill development.", user: users[1]._id, blog: blogs[2]._id },
-      { content: "The point about reducing friction rather than adding features is so important. I've seen many products fail because they became too complex.", user: users[2]._id, blog: blogs[3]._id },
-      { content: "How do you balance getting quick feedback with ensuring you're not biasing users with under-developed prototypes?", user: users[5]._id, blog: blogs[3]._id },
-      { content: "The point about targeting the right investors is key. I wasted months pitching to VCs who never invest in hardware startups.", user: users[1]._id, blog: blogs[4]._id },
-      { content: "What's your take on convertible notes vs. priced rounds for first-time fundraising?", user: users[3]._id, blog: blogs[4]._id },
-      { content: "I've been making the mistake of creating content about our product instead of addressing customer problems. This was a wake-up call!", user: users[0]._id, blog: blogs[5]._id },
-      { content: "Any tips for finding out where your audience actually spends time online? Surveys haven't been very reliable for us.", user: users[3]._id, blog: blogs[5]._id }
+      { content: "Zero to One was transformative for me too! Have you read Thiel's other writings?", user: users[0]._id, blog: blogs[2]._id },
+      { content: "This is spot on. I've seen too many teams build features nobody asked for because they didn't take the time to understand user needs.", user: users[0]._id, blog: blogs[3]._id },
+      { content: "Any recommended tools or frameworks for lightweight user research that won't slow down the development process?", user: users[1]._id, blog: blogs[3]._id },
+      { content: "Point #2 resonates strongly. Finding investors who understand your specific market can save so much time explaining basics.", user: users[2]._id, blog: blogs[4]._id },
+      { content: "How do you recommend founders prepare for investor meetings beyond the standard pitch deck?", user: users[0]._id, blog: blogs[4]._id },
+      { content: "The advice about SEO tools is gold. Do you have specific recommendations that work well for small teams?", user: users[3]._id, blog: blogs[5]._id },
+      { content: "Your point about distribution being as important as creation is so true. Content without distribution is just a diary entry.", user: users[4]._id, blog: blogs[5]._id }
     ];
 
     await Comment.insertMany(commentsData);
@@ -195,32 +199,37 @@ async function seed() {
 
     // Create bookmarks
     const bookmarksData = [
-      { user: users[3]._id, blog: blogs[0]._id },
-      { user: users[3]._id, blog: blogs[2]._id },
       { user: users[0]._id, blog: blogs[1]._id },
-      { user: users[0]._id, blog: blogs[4]._id },
+      { user: users[0]._id, blog: blogs[3]._id },
+      { user: users[1]._id, blog: blogs[0]._id },
       { user: users[1]._id, blog: blogs[2]._id },
-      { user: users[1]._id, blog: blogs[5]._id },
       { user: users[2]._id, blog: blogs[0]._id },
-      { user: users[2]._id, blog: blogs[3]._id },
-      { user: users[4]._id, blog: blogs[1]._id },
-      { user: users[5]._id, blog: blogs[2]._id }
+      { user: users[2]._id, blog: blogs[1]._id },
+      { user: users[3]._id, blog: blogs[2]._id },
+      { user: users[3]._id, blog: blogs[4]._id },
+      { user: users[4]._id, blog: blogs[3]._id },
+      { user: users[4]._id, blog: blogs[5]._id },
+      { user: users[5]._id, blog: blogs[2]._id },
+      { user: users[5]._id, blog: blogs[4]._id }
     ];
 
     await Bookmark.insertMany(bookmarksData);
     console.log(`Created bookmarks`);
-
+    
     console.log("Seed completed successfully!");
   } catch (error) {
     console.error("Error during seeding:", error);
   }
 }
 
-// Run the seed function
-seed().then(() => {
-  console.log("Done seeding. Closing database connection.");
-  mongoose.connection.close();
-}).catch(error => {
-  console.error("Error during seed execution:", error);
-  mongoose.connection.close();
-});
+seed()
+  .then(() => {
+    console.log("Done seeding. Closing database connection.");
+    setTimeout(() => {
+      mongoose.connection.close();
+    }, 1000);
+  })
+  .catch(error => {
+    console.error("Error with seed:", error);
+    mongoose.connection.close();
+  });
