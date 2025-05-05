@@ -130,6 +130,20 @@ export default function MessagesPage() {
     };
   }, [id, refetchMessages]);
   
+  // Clean up the typing timeout when component unmounts
+  useEffect(() => {
+    return () => {
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+        
+        // Send a final "stopped typing" indicator if navigating away while typing
+        if (id && webSocketService.isConnected()) {
+          webSocketService.sendTypingIndicator(id, false);
+        }
+      }
+    };
+  }, [typingTimeout, id]);
+  
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -140,6 +154,19 @@ export default function MessagesPage() {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+    
+    // Reset typing state immediately on sending a message
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      setTypingTimeout(null);
+    }
+    
+    // Send typing stopped indicator
+    if (id && webSocketService.isConnected()) {
+      webSocketService.sendTypingIndicator(id, false);
+    }
+    
+    // Send the message
     sendMessageMutation.mutate(message);
   };
 
@@ -302,6 +329,17 @@ export default function MessagesPage() {
                       </div>
                     </div>
                   ))}
+                  {/* Typing indicator */}
+                  {isTyping && (
+                    <div className="flex items-center gap-1 text-muted-foreground text-sm ml-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '600ms' }}></div>
+                      </div>
+                      <span className="ml-2">typing...</span>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -314,7 +352,29 @@ export default function MessagesPage() {
                   type="text"
                   placeholder="Type a message..."
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => {
+                    setMessage(e.target.value);
+                    
+                    // Handle typing indicator
+                    if (id && webSocketService.isConnected()) {
+                      // Clear any existing timeout
+                      if (typingTimeout) {
+                        clearTimeout(typingTimeout);
+                      }
+                      
+                      // Send typing indicator (true)
+                      webSocketService.sendTypingIndicator(id, true);
+                      
+                      // Set timeout to send typing stopped indicator after 2 seconds of inactivity
+                      const timeout = setTimeout(() => {
+                        if (id && webSocketService.isConnected()) {
+                          webSocketService.sendTypingIndicator(id, false);
+                        }
+                      }, 2000);
+                      
+                      setTypingTimeout(timeout);
+                    }
+                  }}
                   className="flex-1"
                 />
                 <Button 
