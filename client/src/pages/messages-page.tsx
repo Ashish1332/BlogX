@@ -359,8 +359,8 @@ export default function MessagesPage() {
                     <Link href={`/profile/${id}`}>
                       <a>
                         <img 
-                          src={conversations.find((c: any) => c.user._id.toString() === id)?.user.profileImage || "https://via.placeholder.com/40"} 
-                          alt={conversations.find((c: any) => c.user._id.toString() === id)?.user.displayName} 
+                          src={conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.profileImage || "https://via.placeholder.com/40"} 
+                          alt={conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.displayName} 
                           className="w-10 h-10 rounded-full object-cover" 
                         />
                       </a>
@@ -368,11 +368,11 @@ export default function MessagesPage() {
                     <div>
                       <Link href={`/profile/${id}`}>
                         <a className="font-semibold hover:underline">
-                          {conversations.find((c: any) => c.user._id.toString() === id)?.user.displayName}
+                          {conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.displayName}
                         </a>
                       </Link>
                       <p className="text-xs text-muted-foreground">
-                        @{conversations.find((c: any) => c.user._id.toString() === id)?.user.username}
+                        @{conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.username}
                       </p>
                     </div>
                   </>
@@ -415,19 +415,19 @@ export default function MessagesPage() {
                 <div className="space-y-4">
                   {messages && messages.map((msg: any) => (
                     <div 
-                      key={msg.id} 
-                      className={`flex ${msg.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                      key={msg._id} 
+                      className={`flex ${msg.senderId === currentUser?._id ? 'justify-end' : 'justify-start'}`}
                     >
                       <div 
                         className={`max-w-[70%] px-4 py-2 rounded-lg ${
-                          msg.senderId === currentUser?.id 
+                          msg.senderId === currentUser?._id 
                             ? 'bg-primary text-white' 
                             : 'bg-secondary text-foreground'
                         }`}
                       >
                         <p>{msg.content}</p>
                         <p className={`text-xs mt-1 ${
-                          msg.senderId === currentUser?.id 
+                          msg.senderId === currentUser?._id 
                             ? 'text-white/70' 
                             : 'text-muted-foreground'
                         }`}>
