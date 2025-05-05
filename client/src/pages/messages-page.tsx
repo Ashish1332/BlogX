@@ -164,9 +164,14 @@ export default function MessagesPage() {
       // If the message is from the current conversation, trigger a refetch
       if (id && data.message && (
         (data.message.senderId === id) || 
-        (data.message.receiverId === id)
+        (data.message.receiverId === id) ||
+        // Also when we sent the message and it's being reflected back to us
+        (data.isSender && data.message.receiverId === id)
       )) {
-        refetchMessages();
+        // Add a small delay to avoid race conditions with database
+        setTimeout(() => {
+          refetchMessages();
+        }, 100);
       }
       
       // Also update conversations list to show latest messages

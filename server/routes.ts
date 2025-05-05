@@ -1212,7 +1212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For MongoDB, use the string ID directly
       const receiverId = req.params.userId;
-      console.log(`Sending message to user: ${receiverId}`);
+      console.log(`API: Sending message to user: ${receiverId}`);
       
       const receiver = await storage.getUser(receiverId);
       if (!receiver) {
@@ -1229,7 +1229,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User ID not found" });
       }
       
-      console.log(`Sending message from ${senderId} to ${receiverId}: "${validatedData.content.substring(0, 20)}${validatedData.content.length > 20 ? '...' : ''}"`);
+      // Check if the client is using this as a fallback and WebSocket is connected
+      // This should be rare now with the client-side changes, but we still want to be cautious
+      let isConnectedViaWebSocket = false;
+      clients.forEach((clientUserId) => {
+        if (clientUserId === senderId) {
+          isConnectedViaWebSocket = true;
+        }
+      });
+      
+      // If client is using a fallback despite being connected via WebSocket,
+      // we should check if this is a duplicate of a very recent message
+      if (isConnectedViaWebSocket) {
+        // Look for a recent message within the last 3 seconds
+        const recentMessages = await storage.getMessages(senderId, receiverId, 5);
+        const isDuplicate = recentMessages.some(msg => 
+          msg.content === validatedData.content && 
+          msg.senderId === senderId &&
+          // Message sent within the last 3 seconds
+          (new Date().getTime() - new Date(msg.createdAt).getTime() < 3000)
+        );
+        
+        if (isDuplicate) {
+          console.log(`Detected duplicate message via API, skipping: "${validatedData.content.substring(0, 20)}${validatedData.content.length > 20 ? '...' : ''}"`);
+          // Return the most recent message instead of creating a duplicate
+          return res.status(201).json(recentMessages[0]);
+        }
+      }
+      
+      console.log(`API: Sending message from ${senderId} to ${receiverId}: "${validatedData.content.substring(0, 20)}${validatedData.content.length > 20 ? '...' : ''}"`);
       
       const message = await storage.sendMessage({
         senderId,
@@ -1237,7 +1265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: validatedData.content
       });
       
-      console.log(`Message saved with ID: ${message._id}`);
+      console.log(`API: Message saved with ID: ${message._id}`);
       
       // Broadcast message to receiver
       broadcastToUser(receiverId, {
