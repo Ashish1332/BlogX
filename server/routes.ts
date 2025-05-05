@@ -629,13 +629,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { displayName, bio, profileImage, coverImage } = req.body;
       
+      console.log("Profile update request:", { displayName, bio, profileImage, coverImage });
+      console.log("User object:", req.user);
+      
       // Use MongoDB _id instead of id property
       const userId = req.user._id ? req.user._id.toString() : undefined;
+      console.log("Extracted userId:", userId);
       
       if (!userId) {
+        console.log("No userId found in the request, returning 401");
         return res.status(401).json({ message: "Authentication required" });
       }
       
+      console.log("Calling storage.updateUser with userId:", userId);
       const updatedUser = await storage.updateUser(userId, {
         displayName,
         bio,
@@ -961,17 +967,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
 
+      console.log("Profile image upload request, filename:", req.file.filename);
+      console.log("User object for profile image upload:", req.user);
+      
       // Use MongoDB _id instead of id property
       const userId = req.user._id ? req.user._id.toString() : undefined;
+      console.log("Extracted userId for profile image:", userId);
       
       if (!userId) {
+        console.log("No userId found in the profile image upload request, returning 401");
         return res.status(401).json({ message: "Authentication required" });
       }
 
+      console.log("Calling storage.updateUser with userId for profile image:", userId);
       // Update the user's profile with the new image URL
-      await storage.updateUser(userId, {
+      const updatedUser = await storage.updateUser(userId, {
         profileImage: fileUrl
       });
+      
+      console.log("Profile image update result:", updatedUser ? "Success" : "Failed");
 
       // Return the URL to the uploaded file
       res.json({ 
@@ -992,18 +1006,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
-
+      
+      console.log("Cover image upload request, filename:", req.file.filename);
+      console.log("User object for cover image upload:", req.user);
+      
       // Use MongoDB _id instead of id property
       const userId = req.user._id ? req.user._id.toString() : undefined;
+      console.log("Extracted userId for cover image:", userId);
       
       if (!userId) {
+        console.log("No userId found in the cover image upload request, returning 401");
         return res.status(401).json({ message: "Authentication required" });
       }
 
+      console.log("Calling storage.updateUser with userId for cover image:", userId);
       // Update the user's profile with the new cover image URL
-      await storage.updateUser(userId, {
+      const updatedUser = await storage.updateUser(userId, {
         coverImage: fileUrl
       });
+      
+      console.log("Cover image update result:", updatedUser ? "Success" : "Failed");
 
       // Return the URL to the uploaded file
       res.json({ 
