@@ -8,6 +8,7 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import mongoose from "mongoose";
 
 // Configure multer for file uploads
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -1328,7 +1329,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Delete a message
+  // Move conversation deletion route above single message deletion
+  // (order matters in Express, more specific routes should come first)
+  app.delete("/api/messages/conversation/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
+      const otherUserId = req.params.userId;
+      
+      // Use imported mongoose to access the Message model directly for efficient deletion
+      const Message = mongoose.model('Message');
+      
+      // Delete messages in both directions (sent and received)
+      const result = await Message.deleteMany({
+        $or: [
+          { sender: currentUserId, receiver: otherUserId },
+          { sender: otherUserId, receiver: currentUserId }
+        ]
+      });
+      
+      // Broadcast deletion to both users
+      broadcastToUser(currentUserId, {
+        type: 'conversation_deleted',
+        withUser: otherUserId,
+        deletedCount: result.deletedCount
+      });
+      
+      broadcastToUser(otherUserId, {
+        type: 'conversation_deleted',
+        withUser: currentUserId,
+        deletedCount: result.deletedCount
+      });
+      
+      res.status(200).json({ 
+        message: 'Conversation deleted successfully',
+        deletedCount: result.deletedCount
+      });
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      res.status(500).json({ message: 'Failed to delete conversation' });
+    }
+  });
+  
+  // Delete a single message (this route needs to come after more specific routes)
   app.delete("/api/messages/:messageId", isAuthenticated, async (req, res) => {
     try {
       const messageId = req.params.messageId;
@@ -1377,6 +1419,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete message" });
     }
   });
+  
+
 
   // Ensure uploads directory exists
   const uploadsDir = path.join(process.cwd(), 'uploads');

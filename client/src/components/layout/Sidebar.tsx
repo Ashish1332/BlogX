@@ -66,18 +66,19 @@ export default function Sidebar() {
             <ul className="space-y-1">
               {navItems.map((item) => (
                 <li key={item.path}>
-                  <Link href={item.path}>
-                    <a className={`flex items-center gap-4 p-3 rounded-full hover:bg-secondary text-xl font-medium ${location === item.path ? 'font-bold' : ''}`}>
-                      <div className="relative">
-                        {item.icon}
-                        {item.badge && (
-                          <span className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 bg-primary text-white h-5 w-5 flex items-center justify-center rounded-full text-xs">
-                            {item.badge > 99 ? "99+" : item.badge}
-                          </span>
-                        )}
-                      </div>
-                      <span>{item.label}</span>
-                    </a>
+                  <Link 
+                    href={item.path}
+                    className={`flex items-center gap-4 p-3 rounded-full hover:bg-secondary text-xl font-medium ${location === item.path ? 'font-bold' : ''}`}
+                  >
+                    <div className="relative">
+                      {item.icon}
+                      {item.badge && (
+                        <span className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 bg-primary text-white h-5 w-5 flex items-center justify-center rounded-full text-xs">
+                          {item.badge > 99 ? "99+" : item.badge}
+                        </span>
+                      )}
+                    </div>
+                    <span>{item.label}</span>
                   </Link>
                 </li>
               ))}
@@ -112,19 +113,20 @@ export default function Sidebar() {
           
           {/* User Profile */}
           {user && (
-            <div className="mt-auto p-3 flex items-center gap-3 hover:bg-secondary rounded-full cursor-pointer">
-              <Link href={`/profile/${user.id}`}>
-                <a className="flex items-center gap-3 w-full">
-                  <img 
-                    src={user.profileImage || "https://via.placeholder.com/40"} 
-                    alt={user.displayName} 
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold truncate">{user.displayName}</h3>
-                    <p className="text-muted-foreground text-sm truncate">@{user.username}</p>
-                  </div>
-                </a>
+            <div className="mt-auto p-3 hover:bg-secondary rounded-full">
+              <Link 
+                href={`/profile/${user.id}`}
+                className="flex items-center gap-3 w-full"
+              >
+                <img 
+                  src={user.profileImage || "https://via.placeholder.com/40"} 
+                  alt={user.displayName} 
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold truncate">{user.displayName}</h3>
+                  <p className="text-muted-foreground text-sm truncate">@{user.username}</p>
+                </div>
               </Link>
             </div>
           )}

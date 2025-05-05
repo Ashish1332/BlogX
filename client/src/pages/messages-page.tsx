@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import MainLayout from "@/components/layout/MainLayout";
-import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, Search, UserPlus, MessageSquare as MessageSquareIcon } from "lucide-react";
+import { Send, Loader2, Search, UserPlus, Trash2, MessageSquare as MessageSquareIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import webSocketService from "@/services/webSocketService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -301,6 +300,29 @@ export default function MessagesPage() {
       </MainLayout>
     );
   }
+  
+  // If not logged in, show login prompt
+  if (!currentUser) {
+    return (
+      <MainLayout pageTitle="Messages">
+        <div className="flex flex-col items-center justify-center py-16 px-4">
+          <MessageSquareIcon className="h-16 w-16 text-primary mb-6" />
+          <h2 className="text-2xl font-bold mb-2">Sign in to view messages</h2>
+          <p className="text-muted-foreground text-center mb-6 max-w-md">
+            You need to be signed in to send and receive messages with other users.
+          </p>
+          <div className="flex gap-4">
+            <Button onClick={() => navigate("/auth?tab=login")}>
+              Sign In
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/auth?tab=register")}>
+              Create Account
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout pageTitle="Messages">
@@ -345,63 +367,116 @@ export default function MessagesPage() {
                       {filteredFollowing.map((user: any) => (
                         <div 
                           key={user._id} 
-                          className="flex items-center gap-3 p-2 rounded-md hover:bg-secondary cursor-pointer"
+                          className="flex items-center gap-3 p-2 hover:bg-secondary rounded-md cursor-pointer"
                           onClick={() => startConversation(user._id)}
                         >
                           <img 
                             src={user.profileImage || "https://via.placeholder.com/40"} 
                             alt={user.displayName} 
-                            className="w-10 h-10 rounded-full object-cover"
+                            className="w-10 h-10 rounded-full object-cover" 
                           />
                           <div>
                             <p className="font-medium">{user.displayName}</p>
-                            <p className="text-sm text-muted-foreground">@{user.username}</p>
+                            <p className="text-xs text-muted-foreground">@{user.username}</p>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-4">
-                      <p className="text-muted-foreground">
-                        {searchTerm ? "No matching users found" : "You're not following anyone yet"}
-                      </p>
-                    </div>
+                    <p className="text-center text-muted-foreground py-4">
+                      {searchTerm ? "No users found matching your search" : "You aren't following anyone yet"}
+                    </p>
                   )}
                 </div>
               </DialogContent>
             </Dialog>
           </div>
-
+          
+          {/* List of Conversations */}
           {isConversationsLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="p-4 flex justify-center">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-          ) : isConversationsError ? (
-            <div className="p-4 text-center">
+          ) : isConversationsError || !conversations ? (
+            <div className="p-4 flex flex-col items-center gap-2">
               <p className="text-destructive">Failed to load conversations</p>
-            </div>
-          ) : conversations && conversations.length === 0 ? (
-            <div className="p-4 text-center flex flex-col items-center gap-3">
-              <MessageSquareIcon className="h-8 w-8 text-muted-foreground" />
-              <div>
-                <p className="text-muted-foreground">No conversations yet</p>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Start a conversation with someone you follow.
-                </p>
-              </div>
               <Button 
-                onClick={() => setIsDialogOpen(true)} 
-                className="w-full md:w-auto gap-2"
+                variant="outline" 
+                className="mt-2"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] })}
               >
-                <UserPlus className="w-4 h-4" /> 
-                Start New Conversation
+                Try Again
               </Button>
             </div>
           ) : (
             <div className="divide-y divide-border overflow-y-auto max-h-full">
-              {conversations && conversations.map((conversation: any) => (
-                <Link key={conversation.user._id} href={`/messages/${conversation.user._id}`}>
-                  <a className={`block p-4 hover:bg-secondary/50 transition ${id === conversation.user._id.toString() ? 'bg-secondary' : ''}`}>
+              {conversations.map((conversation: any) => (
+                <div key={conversation.user._id} className="relative group">
+                  <div className="absolute right-3 top-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              
+                              if (confirm("Delete this entire conversation?")) {
+                                fetch(`/api/messages/conversation/${conversation.user._id}`, {
+                                  method: 'DELETE',
+                                  headers: {
+                                    'Content-Type': 'application/json'
+                                  }
+                                })
+                                .then(response => {
+                                  if (response.ok) {
+                                    toast({
+                                      title: "Conversation deleted",
+                                      description: "All messages in this conversation have been deleted",
+                                    });
+                                    
+                                    // Refresh conversations list
+                                    queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+                                    
+                                    // If we're viewing this conversation, go back to messages home
+                                    if (id === conversation.user._id.toString()) {
+                                      navigate("/messages");
+                                    }
+                                  } else {
+                                    console.error("Failed to delete conversation");
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to delete conversation",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                })
+                                .catch(err => {
+                                  console.error("Error deleting conversation:", err);
+                                  toast({
+                                    title: "Error",
+                                    description: "Something went wrong while deleting the conversation",
+                                    variant: "destructive",
+                                  });
+                                });
+                              }
+                            }}
+                            className="bg-gray-700 hover:bg-red-600 text-white p-1 rounded-full transition-colors duration-200"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Delete conversation</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  
+                  <div 
+                    className={`block p-4 hover:bg-secondary/50 transition cursor-pointer ${id === conversation.user._id.toString() ? 'bg-secondary' : ''}`}
+                    onClick={() => navigate(`/messages/${conversation.user._id}`)}
+                  >
                     <div className="flex gap-3">
                       <div className="relative">
                         <img 
@@ -426,8 +501,8 @@ export default function MessagesPage() {
                         </p>
                       </div>
                     </div>
-                  </a>
-                </Link>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -451,21 +526,20 @@ export default function MessagesPage() {
                       if (userData) {
                         return (
                           <>
-                            <Link href={`/profile/${id}`}>
-                              <a>
-                                <img 
-                                  src={userData.profileImage || "https://via.placeholder.com/40"} 
-                                  alt={userData.displayName} 
-                                  className="w-10 h-10 rounded-full object-cover" 
-                                />
-                              </a>
-                            </Link>
+                            <div onClick={() => navigate(`/profile/${id}`)} className="cursor-pointer">
+                              <img 
+                                src={userData.profileImage || "https://via.placeholder.com/40"} 
+                                alt={userData.displayName} 
+                                className="w-10 h-10 rounded-full object-cover" 
+                              />
+                            </div>
                             <div>
-                              <Link href={`/profile/${id}`}>
-                                <a className="font-semibold hover:underline">
-                                  {userData.displayName}
-                                </a>
-                              </Link>
+                              <div 
+                                onClick={() => navigate(`/profile/${id}`)}
+                                className="font-semibold hover:underline cursor-pointer"
+                              >
+                                {userData.displayName}
+                              </div>
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 @{userData.username}
                                 <UserStatusIndicator userId={id} />
@@ -479,21 +553,20 @@ export default function MessagesPage() {
                       if (conversation) {
                         return (
                           <>
-                            <Link href={`/profile/${id}`}>
-                              <a>
-                                <img 
-                                  src={conversation.user.profileImage || "https://via.placeholder.com/40"} 
-                                  alt={conversation.user.displayName} 
-                                  className="w-10 h-10 rounded-full object-cover" 
-                                />
-                              </a>
-                            </Link>
+                            <div onClick={() => navigate(`/profile/${id}`)} className="cursor-pointer">
+                              <img 
+                                src={conversation.user.profileImage || "https://via.placeholder.com/40"} 
+                                alt={conversation.user.displayName} 
+                                className="w-10 h-10 rounded-full object-cover" 
+                              />
+                            </div>
                             <div>
-                              <Link href={`/profile/${id}`}>
-                                <a className="font-semibold hover:underline">
-                                  {conversation.user.displayName}
-                                </a>
-                              </Link>
+                              <div 
+                                onClick={() => navigate(`/profile/${id}`)}
+                                className="font-semibold hover:underline cursor-pointer"
+                              >
+                                {conversation.user.displayName}
+                              </div>
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 @{conversation.user.username}
                                 <UserStatusIndicator userId={id} />
@@ -540,7 +613,7 @@ export default function MessagesPage() {
                 </div>
               ) : localMessages && localMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+                  <MessageSquareIcon className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No messages yet</p>
                   <p className="text-sm text-muted-foreground">
                     Send a message to start the conversation.
@@ -558,6 +631,9 @@ export default function MessagesPage() {
                       msgSenderId = String(msg.sender._id);
                     } else if (msg.senderId) {
                       msgSenderId = String(msg.senderId);
+                    } else if (msg.sender) {
+                      // Direct sender reference (string format)
+                      msgSenderId = String(msg.sender);
                     } else {
                       // If all else fails, check if this might be our message
                       msgSenderId = "";
@@ -577,74 +653,94 @@ export default function MessagesPage() {
                         style={{ justifyContent: isFromCurrentUser ? 'flex-end' : 'flex-start' }}
                       >
                         <div 
+                          className={`relative group rounded-md p-3 max-w-[70%] ${isFromCurrentUser ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'}`}
                           style={{ 
-                            maxWidth: '70%', 
-                            padding: '0.5rem 1rem',
-                            backgroundColor: isFromCurrentUser ? '#3b82f6' : '#374151',
-                            color: 'white',
-                            borderRadius: isFromCurrentUser 
-                              ? '0.5rem 0 0.5rem 0.5rem' 
-                              : '0 0.5rem 0.5rem 0.5rem',
-                            position: 'relative'
+                            borderTopLeftRadius: !isFromCurrentUser ? '0' : undefined,
+                            borderTopRightRadius: isFromCurrentUser ? '0' : undefined,
                           }}
                         >
-                          <p>{msg.content}</p>
-                          <p style={{ 
-                              fontSize: '0.75rem', 
-                              marginTop: '0.25rem',
-                              color: isFromCurrentUser ? 'rgba(255,255,255,0.7)' : '#9ca3af',
-                              textAlign: isFromCurrentUser ? 'right' : 'left'
-                            }}
-                          >
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          <p className="text-xs opacity-70 mt-1 text-right">
                             {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
                           </p>
                           
-                          {/* Message actions dropdown */}
-                          <div 
-                            className="absolute top-0 right-0 opacity-0 hover:opacity-100 group"
-                            style={{ 
-                              right: isFromCurrentUser ? 'auto' : '0', 
-                              left: isFromCurrentUser ? '0' : 'auto'
-                            }}
-                          >
-                            <button 
-                              className="text-gray-400 hover:text-white p-1"
-                              title="Message options"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Confirm before deleting
-                                if (confirm("Delete this message?")) {
-                                  // Make API call to delete message
-                                  fetch(`/api/messages/${msg._id}`, {
-                                    method: 'DELETE',
-                                    headers: {
-                                      'Content-Type': 'application/json'
-                                    }
-                                  })
-                                  .then(response => {
-                                    if (response.ok) {
-                                      // Remove message from local state
-                                      setLocalMessages(prev => 
-                                        prev.filter(m => m._id !== msg._id)
-                                      );
-                                    } else {
-                                      console.error("Failed to delete message");
-                                      alert("Failed to delete message");
-                                    }
-                                  })
-                                  .catch(err => {
-                                    console.error("Error deleting message:", err);
-                                    alert("Error deleting message");
-                                  });
-                                }
+                          {/* Message deletion button */}
+                          {isFromCurrentUser && (
+                            <div 
+                              className="absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                              style={{ 
+                                right: isFromCurrentUser ? 'auto' : '0', 
+                                left: isFromCurrentUser ? '-24px' : 'auto',
+                                transform: isFromCurrentUser ? 'translateX(-50%)' : 'translateX(50%)'
                               }}
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6"></polyline>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                              </svg>
-                            </button>
-                          </div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button 
+                                      className="bg-gray-700 hover:bg-red-600 text-white p-1 rounded-full transition-colors duration-200"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Confirm before deleting
+                                        if (confirm("Delete this message?")) {
+                                          // Make API call to delete message
+                                          fetch(`/api/messages/${msg._id}`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                              'Content-Type': 'application/json'
+                                            }
+                                          })
+                                          .then(response => {
+                                            if (response.ok) {
+                                              // Show success toast
+                                              toast({
+                                                title: "Message deleted",
+                                                description: "Message was successfully deleted",
+                                              });
+                                              
+                                              // Remove message from local state
+                                              setLocalMessages(prev => 
+                                                prev.filter(m => m._id !== msg._id)
+                                              );
+                                              
+                                              // Notify the other user via WebSocket if connected
+                                              if (id && webSocketService.isConnected()) {
+                                                webSocketService.send({
+                                                  type: 'message_deleted',
+                                                  messageId: msg._id,
+                                                  recipientId: id
+                                                });
+                                              }
+                                            } else {
+                                              console.error("Failed to delete message");
+                                              toast({
+                                                title: "Error",
+                                                description: "Failed to delete message",
+                                                variant: "destructive",
+                                              });
+                                            }
+                                          })
+                                          .catch(err => {
+                                            console.error("Error deleting message:", err);
+                                            toast({
+                                              title: "Error",
+                                              description: "Something went wrong while deleting the message",
+                                              variant: "destructive",
+                                            });
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Delete message</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -713,7 +809,7 @@ export default function MessagesPage() {
           </div>
         ) : (
           <div className="flex-1 hidden md:flex flex-col items-center justify-center">
-            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            <MessageSquareIcon className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">Your Messages</h3>
             <p className="text-muted-foreground text-center max-w-md mb-4">
               Select a conversation to read and send messages, or start a new conversation with someone you follow.
@@ -732,38 +828,21 @@ export default function MessagesPage() {
   );
 }
 
-function MessageSquare(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
+// Define type for user status data
+interface UserStatus {
+  isOnline: boolean;
+  lastActive?: string;
 }
 
 // User online status indicator component
 function UserStatusIndicator({ userId }: { userId: string }) {
-  const { data: statusData, isLoading } = useQuery({
+  const { data: statusData, isLoading } = useQuery<UserStatus>({
     queryKey: [`/api/users/${userId}/status`],
     queryFn: getQueryFn({ on401: "returnNull" }),
     refetchInterval: 15000, // Check status every 15 seconds
   });
 
-  if (isLoading) {
-    return null;
-  }
-
-  if (!statusData) {
+  if (isLoading || !statusData) {
     return null;
   }
 

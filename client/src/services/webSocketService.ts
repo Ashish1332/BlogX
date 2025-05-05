@@ -233,6 +233,22 @@ class WebSocketService {
     this.userId = null;
   }
 
+  // Send a generic message through the WebSocket
+  send(message: WebSocketMessage) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send message: WebSocket not connected');
+      return false;
+    }
+    
+    try {
+      this.socket.send(JSON.stringify(message));
+      return true;
+    } catch (error) {
+      console.error('Error sending WebSocket message:', error);
+      return false;
+    }
+  }
+
   // Check if the WebSocket is currently connected
   isConnected() {
     return this.socket?.readyState === WebSocket.OPEN;
