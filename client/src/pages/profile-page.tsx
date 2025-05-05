@@ -317,26 +317,68 @@ export default function ProfilePage() {
                                   onChange={async (e) => {
                                     if (e.target.files?.length) {
                                       const file = e.target.files[0];
+                                      
+                                      // Add file validation
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast({
+                                          title: 'File too large',
+                                          description: 'Please select an image less than 5MB',
+                                          variant: 'destructive'
+                                        });
+                                        return;
+                                      }
+                                      
+                                      if (!file.type.startsWith('image/')) {
+                                        toast({
+                                          title: 'Invalid file type',
+                                          description: 'Please select an image file (JPEG, PNG, GIF, etc.)',
+                                          variant: 'destructive'
+                                        });
+                                        return;
+                                      }
+                                      
+                                      toast({
+                                        title: 'Uploading...',
+                                        description: 'Your profile image is being uploaded',
+                                      });
+                                      
                                       const formData = new FormData();
                                       formData.append('profileImage', file);
                                       
                                       try {
+                                        console.log('Uploading profile image:', file.name, file.type, file.size);
+                                        
                                         const res = await fetch('/api/upload/profile-image', {
                                           method: 'POST',
                                           body: formData,
                                           credentials: 'include'
                                         });
                                         
-                                        if (!res.ok) throw new Error('Failed to upload image');
+                                        // Handle non-2xx responses with more detail
+                                        if (!res.ok) {
+                                          const errorText = await res.text();
+                                          console.error('Profile image upload failed:', res.status, errorText);
+                                          throw new Error(`Failed to upload image: ${res.status} ${errorText}`);
+                                        }
                                         
                                         const data = await res.json();
+                                        console.log('Profile image upload successful:', data);
+                                        
+                                        // Update form value with the new image URL
                                         form.setValue('profileImage', data.fileUrl);
+                                        
+                                        // Auto-submit the form to update the profile
+                                        updateProfileMutation.mutate({
+                                          ...form.getValues(),
+                                          profileImage: data.fileUrl
+                                        });
                                         
                                         toast({
                                           title: 'Profile image uploaded',
                                           description: 'Your profile image has been uploaded successfully',
                                         });
                                       } catch (error) {
+                                        console.error('Profile image upload error:', error);
                                         toast({
                                           title: 'Upload failed',
                                           description: (error as Error).message || 'Failed to upload image',
@@ -374,26 +416,68 @@ export default function ProfilePage() {
                                   onChange={async (e) => {
                                     if (e.target.files?.length) {
                                       const file = e.target.files[0];
+                                      
+                                      // Add file validation
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast({
+                                          title: 'File too large',
+                                          description: 'Please select an image less than 5MB',
+                                          variant: 'destructive'
+                                        });
+                                        return;
+                                      }
+                                      
+                                      if (!file.type.startsWith('image/')) {
+                                        toast({
+                                          title: 'Invalid file type',
+                                          description: 'Please select an image file (JPEG, PNG, GIF, etc.)',
+                                          variant: 'destructive'
+                                        });
+                                        return;
+                                      }
+                                      
+                                      toast({
+                                        title: 'Uploading...',
+                                        description: 'Your cover image is being uploaded',
+                                      });
+                                      
                                       const formData = new FormData();
                                       formData.append('coverImage', file);
                                       
                                       try {
+                                        console.log('Uploading cover image:', file.name, file.type, file.size);
+                                        
                                         const res = await fetch('/api/upload/cover-image', {
                                           method: 'POST',
                                           body: formData,
                                           credentials: 'include'
                                         });
                                         
-                                        if (!res.ok) throw new Error('Failed to upload image');
+                                        // Handle non-2xx responses with more detail
+                                        if (!res.ok) {
+                                          const errorText = await res.text();
+                                          console.error('Cover image upload failed:', res.status, errorText);
+                                          throw new Error(`Failed to upload image: ${res.status} ${errorText}`);
+                                        }
                                         
                                         const data = await res.json();
+                                        console.log('Cover image upload successful:', data);
+                                        
+                                        // Update form value with the new image URL
                                         form.setValue('coverImage', data.fileUrl);
+                                        
+                                        // Auto-submit the form to update the profile
+                                        updateProfileMutation.mutate({
+                                          ...form.getValues(),
+                                          coverImage: data.fileUrl
+                                        });
                                         
                                         toast({
                                           title: 'Cover image uploaded',
                                           description: 'Your cover image has been uploaded successfully',
                                         });
                                       } catch (error) {
+                                        console.error('Cover image upload error:', error);
                                         toast({
                                           title: 'Upload failed',
                                           description: (error as Error).message || 'Failed to upload image',

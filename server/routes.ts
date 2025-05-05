@@ -961,31 +961,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/upload/profile-image', isAuthenticated, upload.single('profileImage'), async (req, res) => {
     try {
       if (!req.file) {
+        console.error("No file uploaded in profile image request");
         return res.status(400).json({ message: 'No file uploaded' });
       }
 
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
-
-      console.log("Profile image upload request, filename:", req.file.filename);
-      console.log("User object for profile image upload:", req.user);
+      
+      console.log("Profile image upload - File details:", {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        filename: req.file.filename,
+        path: req.file.path,
+        size: req.file.size
+      });
+      
+      // Ensure file exists on disk
+      try {
+        const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
+        const fileExists = fs.existsSync(fullPath);
+        console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
+        
+        // If file somehow doesn't exist
+        if (!fileExists) {
+          return res.status(500).json({ message: "File upload failed - file not found on disk" });
+        }
+      } catch (fileCheckError) {
+        console.error("Error checking uploaded file:", fileCheckError);
+      }
       
       // Use MongoDB _id instead of id property
       const userId = req.user._id ? req.user._id.toString() : undefined;
-      console.log("Extracted userId for profile image:", userId);
+      console.log("Profile image upload - User ID:", userId);
       
       if (!userId) {
-        console.log("No userId found in the profile image upload request, returning 401");
+        console.error("No userId found in profile image upload request");
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      console.log("Calling storage.updateUser with userId for profile image:", userId);
       // Update the user's profile with the new image URL
+      console.log("Updating user profile with image URL:", fileUrl);
       const updatedUser = await storage.updateUser(userId, {
         profileImage: fileUrl
       });
       
-      console.log("Profile image update result:", updatedUser ? "Success" : "Failed");
+      if (!updatedUser) {
+        console.error("Failed to update user with profile image URL");
+        return res.status(500).json({ message: "Failed to update user profile" });
+      }
+      
+      console.log("Profile image successfully updated for user:", userId);
 
       // Return the URL to the uploaded file
       res.json({ 
@@ -1001,31 +1027,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/upload/cover-image', isAuthenticated, upload.single('coverImage'), async (req, res) => {
     try {
       if (!req.file) {
+        console.error("No file uploaded in cover image request");
         return res.status(400).json({ message: 'No file uploaded' });
       }
 
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
       
-      console.log("Cover image upload request, filename:", req.file.filename);
-      console.log("User object for cover image upload:", req.user);
+      console.log("Cover image upload - File details:", {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        filename: req.file.filename,
+        path: req.file.path,
+        size: req.file.size
+      });
+      
+      // Ensure file exists on disk
+      try {
+        const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
+        const fileExists = fs.existsSync(fullPath);
+        console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
+        
+        // If file somehow doesn't exist
+        if (!fileExists) {
+          return res.status(500).json({ message: "File upload failed - file not found on disk" });
+        }
+      } catch (fileCheckError) {
+        console.error("Error checking uploaded file:", fileCheckError);
+      }
       
       // Use MongoDB _id instead of id property
       const userId = req.user._id ? req.user._id.toString() : undefined;
-      console.log("Extracted userId for cover image:", userId);
+      console.log("Cover image upload - User ID:", userId);
       
       if (!userId) {
-        console.log("No userId found in the cover image upload request, returning 401");
+        console.error("No userId found in cover image upload request");
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      console.log("Calling storage.updateUser with userId for cover image:", userId);
       // Update the user's profile with the new cover image URL
+      console.log("Updating user profile with cover image URL:", fileUrl);
       const updatedUser = await storage.updateUser(userId, {
         coverImage: fileUrl
       });
       
-      console.log("Cover image update result:", updatedUser ? "Success" : "Failed");
+      if (!updatedUser) {
+        console.error("Failed to update user with cover image URL");
+        return res.status(500).json({ message: "Failed to update user profile" });
+      }
+      
+      console.log("Cover image successfully updated for user:", userId);
 
       // Return the URL to the uploaded file
       res.json({ 
