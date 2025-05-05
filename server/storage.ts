@@ -300,21 +300,59 @@ export class DatabaseStorage implements IStorage {
   // Follower methods
   async followUser(followerId: string, followingId: string): Promise<boolean> {
     try {
+      console.log("followUser called with:", {
+        followerId,
+        followingId,
+        followerIdType: typeof followerId,
+        followingIdType: typeof followingId
+      });
+      
+      // Check if the IDs are valid MongoDB ObjectId format
+      if (!followerId || !followingId || 
+          followerId === "-1" || followingId === "-1" || 
+          followerId === "undefined" || followingId === "undefined" ||
+          followerId.length !== 24 || followingId.length !== 24) {
+        console.error("Invalid user IDs for following:", { followerId, followingId });
+        return false;
+      }
+      
+      // Check if both users exist
+      const followerUser = await User.findById(followerId);
+      const followingUser = await User.findById(followingId);
+      
+      if (!followerUser) {
+        console.error("Follower user not found:", followerId);
+        return false;
+      }
+      
+      if (!followingUser) {
+        console.error("Following user not found:", followingId);
+        return false;
+      }
+      
+      console.log("Both users exist:", {
+        follower: followerUser._id.toString(),
+        following: followingUser._id.toString()
+      });
+      
       const existingFollow = await Follower.findOne({
         follower: followerId,
         following: followingId
       });
       
       if (existingFollow) {
+        console.log("Already following");
         return true; // Already following
       }
       
+      console.log("Creating new follow");
       const newFollow = new Follower({
         follower: followerId,
         following: followingId
       });
       
-      await newFollow.save();
+      const savedFollow = await newFollow.save();
+      console.log("Follow saved:", savedFollow);
       return true;
     } catch (error) {
       console.error("Error following user:", error);
