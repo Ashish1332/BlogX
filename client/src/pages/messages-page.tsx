@@ -10,6 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import webSocketService from "@/services/webSocketService";
 
 export default function MessagesPage() {
   const { id } = useParams();
@@ -18,6 +19,8 @@ export default function MessagesPage() {
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isClient, setIsClient] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +63,21 @@ export default function MessagesPage() {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!id) throw new Error("No recipient selected");
+      
+      // First try to send via WebSocket for real-time delivery
+      if (webSocketService.isConnected() && currentUser?._id) {
+        const sent = webSocketService.sendDirectMessage(id, content);
+        if (sent) {
+          console.log('Message sent via WebSocket');
+          // We still want to save the message through the API for persistence
+          const res = await apiRequest("POST", `/api/messages/${id}`, { content });
+          return await res.json();
+        } else {
+          console.log('WebSocket sending failed, falling back to API');
+        }
+      }
+      
+      // Fall back to regular API call if WebSocket is not connected
       const res = await apiRequest("POST", `/api/messages/${id}`, { content });
       return await res.json();
     },
@@ -78,6 +96,40 @@ export default function MessagesPage() {
     },
   });
 
+  // Setup WebSocket listeners for real-time messages
+  useEffect(() => {
+    // Listen for incoming messages
+    const unsubscribeNewMessage = webSocketService.on('new_message', (data) => {
+      console.log('New message received via WebSocket:', data);
+      
+      // If the message is from the current conversation, trigger a refetch
+      if (id && data.message && (
+        (data.message.senderId === id) || 
+        (data.message.receiverId === id)
+      )) {
+        refetchMessages();
+      }
+      
+      // Also update conversations list to show latest messages
+      queryClient.invalidateQueries({ queryKey: ['/api/messages/conversations'] });
+    });
+    
+    // Listen for typing indicators
+    const unsubscribeTyping = webSocketService.on('typing_indicator', (data) => {
+      // Update typing state when the other user is typing
+      if (id && data.from === id) {
+        setIsTyping(data.isTyping);
+      }
+      console.log('Typing indicator:', data);
+    });
+    
+    return () => {
+      // Clean up listeners when component unmounts or id changes
+      unsubscribeNewMessage();
+      unsubscribeTyping();
+    };
+  }, [id, refetchMessages]);
+  
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {

@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -8,6 +8,7 @@ import { insertUserSchema, User } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import webSocketService from "@/services/webSocketService";
 
 type AuthContextType = {
   user: User | null;
@@ -53,6 +54,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
+  
+  // Connect to WebSocket when user is authenticated
+  useEffect(() => {
+    if (user && user._id) {
+      // Connect to WebSocket with user ID
+      console.log(`Connecting WebSocket for user: ${user._id}`);
+      webSocketService.connect(user._id.toString());
+      
+      // Show a toast notification to indicate real-time features are active
+      toast({
+        title: "Connected to real-time updates",
+        description: "You'll receive notifications and messages in real-time.",
+        duration: 3000,
+      });
+    } else if (!user) {
+      // Disconnect WebSocket when user logs out
+      webSocketService.disconnect();
+    }
+  }, [user, toast]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
