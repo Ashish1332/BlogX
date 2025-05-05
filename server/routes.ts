@@ -1100,12 +1100,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message Routes
   app.get("/api/messages/conversations", isAuthenticated, async (req, res) => {
     try {
-      // For MongoDB, use the _id property as a string
-      const userId = req.user?._id?.toString();
-      if (!userId) {
+      if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
       
+      // For MongoDB, use the _id property as a string - handle both id and _id cases
+      const userId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
+      if (!userId) {
+        console.error("User ID missing from authenticated user:", req.user);
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      console.log(`Fetching conversations for user: ${userId}`);
       const conversations = await storage.getConversations(userId);
       
       res.json(conversations);
@@ -1117,20 +1123,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/messages/:userId", isAuthenticated, async (req, res) => {
     try {
-      // For MongoDB, use the string ID directly
-      const otherUserId = req.params.userId;
-      const otherUser = await storage.getUser(otherUserId);
-      
-      if (!otherUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // For MongoDB, use the _id property as a string
-      const currentUserId = req.user?._id?.toString();
-      if (!currentUserId) {
+      if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
       
+      // For MongoDB, use the string ID directly
+      const otherUserId = req.params.userId;
+      console.log(`Fetching messages with user: ${otherUserId}`);
+      
+      const otherUser = await storage.getUser(otherUserId);
+      if (!otherUser) {
+        console.error(`Other user not found: ${otherUserId}`);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // For MongoDB, use the _id property as a string - handle both id and _id cases
+      const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
+      if (!currentUserId) {
+        console.error("User ID missing from authenticated user:", req.user);
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      console.log(`Getting messages between ${currentUserId} and ${otherUserId}`);
       const messages = await storage.getMessages(currentUserId, otherUserId);
       
       // Mark messages from other user as read
@@ -1149,27 +1163,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/messages/:userId", isAuthenticated, async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // For MongoDB, use the string ID directly
       const receiverId = req.params.userId;
-      const receiver = await storage.getUser(receiverId);
+      console.log(`Sending message to user: ${receiverId}`);
       
+      const receiver = await storage.getUser(receiverId);
       if (!receiver) {
+        console.error(`Receiver not found: ${receiverId}`);
         return res.status(404).json({ message: "User not found" });
       }
       
       const validatedData = insertMessageSchema.parse(req.body);
       
-      // For MongoDB, use the _id property as a string
-      const senderId = req.user?._id?.toString();
+      // For MongoDB, use the _id property as a string - handle both id and _id cases
+      const senderId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
       if (!senderId) {
-        return res.status(401).json({ message: "Authentication required" });
+        console.error("User ID missing from authenticated user:", req.user);
+        return res.status(401).json({ message: "User ID not found" });
       }
+      
+      console.log(`Sending message from ${senderId} to ${receiverId}: "${validatedData.content.substring(0, 20)}${validatedData.content.length > 20 ? '...' : ''}"`);
       
       const message = await storage.sendMessage({
         senderId,
         receiverId,
         content: validatedData.content
       });
+      
+      console.log(`Message saved with ID: ${message._id}`);
       
       // Broadcast message to receiver
       broadcastToUser(receiverId, {

@@ -42,6 +42,20 @@ export default function MessagesPage() {
     },
   });
 
+  // Fetch user data for the conversation partner if needed
+  const {
+    data: userData
+  } = useQuery({
+    queryKey: [`/api/users/${id}`],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await fetch(`/api/users/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch user data");
+      return res.json();
+    },
+    enabled: !!id && !!conversations && !conversations.find((c: any) => c.user._id.toString() === id.toString()),
+  });
+
   // Fetch messages for selected conversation
   const { 
     data: messages,
@@ -52,12 +66,26 @@ export default function MessagesPage() {
     queryKey: [`/api/messages/${id}`],
     queryFn: async () => {
       if (!id) return null;
-      const res = await fetch(`/api/messages/${id}`);
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      return res.json();
+      try {
+        // Make authenticated request with proper credentials
+        const res = await fetch(`/api/messages/${id}`, {
+          credentials: 'include' // Important for session cookies
+        });
+        
+        if (!res.ok) {
+          console.error("Message fetch error:", await res.text());
+          throw new Error("Failed to fetch messages");
+        }
+        
+        return res.json();
+      } catch (error) {
+        console.error("Message fetch exception:", error);
+        throw error;
+      }
     },
     enabled: !!id,
     refetchInterval: 5000, // Poll for new messages every 5 seconds
+    retry: 3, // Retry failed requests
   });
 
   // Send message mutation
@@ -352,29 +380,50 @@ export default function MessagesPage() {
         {id ? (
           <div className={`flex-1 flex flex-col ${id ? 'block' : 'hidden md:block'}`}>
             {/* Header with user info */}
-            {conversations && (
-              <div className="p-4 border-b border-border flex items-center gap-3">
+            <div className="p-4 border-b border-border flex items-center gap-3">
                 {id && conversations && (
                   <>
-                    <Link href={`/profile/${id}`}>
-                      <a>
-                        <img 
-                          src={conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.profileImage || "https://via.placeholder.com/40"} 
-                          alt={conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.displayName} 
-                          className="w-10 h-10 rounded-full object-cover" 
-                        />
-                      </a>
-                    </Link>
-                    <div>
-                      <Link href={`/profile/${id}`}>
-                        <a className="font-semibold hover:underline">
-                          {conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.displayName}
-                        </a>
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        @{conversations.find((c: any) => c.user._id.toString() === id.toString())?.user.username}
-                      </p>
-                    </div>
+                    {/* Find the conversation that matches the current user ID */}
+                    {(() => {
+                      // Find the matching conversation
+                      const conversation = conversations.find(
+                        (c: any) => c.user._id.toString() === id.toString()
+                      );
+                      
+                      // If no matching conversation is found, make a direct API request to get user info
+                      if (!conversation) {
+                        return (
+                          <div className="flex items-center gap-3">
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                            <span>Loading user information...</span>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <>
+                          <Link href={`/profile/${id}`}>
+                            <a>
+                              <img 
+                                src={conversation.user.profileImage || "https://via.placeholder.com/40"} 
+                                alt={conversation.user.displayName} 
+                                className="w-10 h-10 rounded-full object-cover" 
+                              />
+                            </a>
+                          </Link>
+                          <div>
+                            <Link href={`/profile/${id}`}>
+                              <a className="font-semibold hover:underline">
+                                {conversation.user.displayName}
+                              </a>
+                            </Link>
+                            <p className="text-xs text-muted-foreground">
+                              @{conversation.user.username}
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
                 <button 
@@ -384,7 +433,6 @@ export default function MessagesPage() {
                   Back
                 </button>
               </div>
-            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
