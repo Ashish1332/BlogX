@@ -412,7 +412,7 @@ export default function MessagesPage() {
             <div className="divide-y divide-border overflow-y-auto max-h-full messages-scrollbar">
               {conversations.map((conversation: any) => (
                 <div key={conversation.user._id} className="relative group">
-                  <div className="absolute right-3 top-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-3 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
