@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
+import mongoose from "mongoose";
 
 declare global {
   namespace Express {
@@ -61,10 +62,17 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: number, done) => {
+  passport.serializeUser((user: any, done) => {
+    // For MongoDB, serialize the _id (ObjectId) as a string
+    done(null, user._id ? user._id.toString() : user.id);
+  });
+  
+  passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
+      if (!user) {
+        return done(null, false);
+      }
       done(null, user);
     } catch (error) {
       done(error);
@@ -90,7 +98,8 @@ export function setupAuth(app: Express) {
       });
 
       // Remove password from response
-      const { password, ...userWithoutPassword } = user;
+      const userObj = user;
+      const { password: pwd, ...userWithoutPassword } = userObj;
 
       req.login(user, (err) => {
         if (err) return next(err);
@@ -110,7 +119,8 @@ export function setupAuth(app: Express) {
         if (err) return next(err);
         
         // Remove password from response
-        const { password, ...userWithoutPassword } = user;
+        const userObj = user;
+        const { password: pwd, ...userWithoutPassword } = userObj;
         res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
@@ -127,7 +137,8 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     // Remove password from response
-    const { password, ...userWithoutPassword } = req.user;
+    const userObj = req.user as any;
+    const { password: pwd, ...userWithoutPassword } = userObj;
     res.json(userWithoutPassword);
   });
 }
