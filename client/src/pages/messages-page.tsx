@@ -6,12 +6,13 @@ import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Loader2, Search, UserPlus, MessageSquare as MessageSquareIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import webSocketService from "@/services/webSocketService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function MessagesPage() {
   const { id } = useParams();
@@ -648,5 +649,48 @@ function MessageSquare(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
+  );
+}
+
+// User online status indicator component
+function UserStatusIndicator({ userId }: { userId: string }) {
+  const { data: statusData, isLoading } = useQuery({
+    queryKey: [`/api/users/${userId}/status`],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    refetchInterval: 15000, // Check status every 15 seconds
+  });
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!statusData) {
+    return null;
+  }
+
+  const { isOnline, lastActive } = statusData;
+  
+  let statusText = "Offline";
+  if (isOnline) {
+    statusText = "Online";
+  } else if (lastActive) {
+    statusText = `Last active ${formatDistanceToNow(new Date(lastActive), { addSuffix: true })}`;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center">
+            <span 
+              className={`h-2 w-2 rounded-full ml-1 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
+            />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{statusText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
