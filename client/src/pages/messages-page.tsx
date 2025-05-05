@@ -444,8 +444,9 @@ export default function MessagesPage() {
                                   {userData.displayName}
                                 </a>
                               </Link>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 @{userData.username}
+                                <UserStatusIndicator userId={id} />
                               </p>
                             </div>
                           </>
@@ -471,8 +472,9 @@ export default function MessagesPage() {
                                   {conversation.user.displayName}
                                 </a>
                               </Link>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 @{conversation.user.username}
+                                <UserStatusIndicator userId={id} />
                               </p>
                             </div>
                           </>

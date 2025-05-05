@@ -88,6 +88,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Track connected clients and their user IDs
   const clients = new Map();
   
+  // Track online users and their last active time
+  const onlineUsers = new Map<string, { lastActive: Date }>();
+  
+  // Helper to check if a user is online
+  function isUserOnline(userId: string): boolean {
+    return clients.has(userId) || onlineUsers.has(userId);
+  }
+  
+  // Update user's active status
+  function updateUserActiveStatus(userId: string) {
+    onlineUsers.set(userId, { lastActive: new Date() });
+  }
+  
   wss.on('connection', (ws, req) => {
     console.log('WebSocket connection established');
     
@@ -100,6 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (data.type === 'identity' && data.userId) {
           clients.set(ws, data.userId);
           console.log(`Client identified as user: ${data.userId}`);
+          updateUserActiveStatus(data.userId);
         }
         
         // Handle direct messages between users
@@ -919,6 +933,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Online status API endpoint
+  app.get("/api/users/:id/status", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const isOnline = isUserOnline(userId);
+      
+      // Get last active time if available
+      let lastActive = null;
+      if (onlineUsers.has(userId)) {
+        lastActive = onlineUsers.get(userId)?.lastActive;
+      }
+      
+      res.json({
+        isOnline,
+        lastActive,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error("Error checking user status:", error);
+      res.status(500).json({ message: "Failed to check user status" });
+    }
+  });
+
   app.get("/api/users/:id/is-following", isAuthenticated, async (req, res) => {
     try {
       // For MongoDB, use the string ID directly
