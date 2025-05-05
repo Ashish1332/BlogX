@@ -89,44 +89,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const clients = new Map();
   
   wss.on('connection', (ws, req) => {
-    ws.on('message', (message) => {
+    console.log('WebSocket connection established');
+    
+    ws.on('message', async (message) => {
       try {
         const data = JSON.parse(message.toString());
+        console.log('WebSocket message received:', data);
         
         // If client sends a userId, associate it with this connection
         if (data.type === 'identity' && data.userId) {
           clients.set(ws, data.userId);
+          console.log(`Client identified as user: ${data.userId}`);
+        }
+        
+        // Handle direct messages between users
+        if (data.type === 'direct_message' && data.to && data.content && data.from) {
+          console.log(`Direct message from ${data.from} to ${data.to}`);
+          
+          try {
+            // Save message to database
+            const savedMessage = await storage.sendMessage({
+              senderId: data.from,
+              receiverId: data.to,
+              content: data.content
+            });
+            
+            // Forward message to recipient
+            broadcastToUser(data.to, {
+              type: 'new_message',
+              message: savedMessage,
+              sender: await storage.getUser(data.from)
+            });
+            
+            // Send confirmation to sender
+            ws.send(JSON.stringify({
+              type: 'message_sent',
+              messageId: savedMessage._id,
+              timestamp: new Date(),
+              status: 'delivered'
+            }));
+          } catch (err) {
+            console.error('Error handling direct message:', err);
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Failed to deliver message',
+              timestamp: new Date()
+            }));
+          }
+        }
+        
+        // Handle typing indicators
+        if (data.type === 'typing' && data.to && data.from) {
+          broadcastToUser(data.to, {
+            type: 'typing_indicator',
+            from: data.from,
+            isTyping: data.isTyping
+          });
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }
     });
     
+    // Send a welcome message to the client
+    ws.send(JSON.stringify({
+      type: 'welcome',
+      message: 'Connected to BlogX realtime server',
+      timestamp: new Date()
+    }));
+    
     ws.on('close', () => {
+      console.log('WebSocket connection closed');
       clients.delete(ws);
     });
+    
+    // Ping clients periodically to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 30000);
   });
   
   // Broadcast a message to all users following a specific user
-  async function broadcastToFollowers(userId: number, data: any) {
-    const followers = await storage.getFollowers(userId);
-    
-    clients.forEach((clientUserId, client) => {
-      const isFollower = followers.some(follower => follower.id === clientUserId);
+  async function broadcastToFollowers(userId: string, data: any) {
+    try {
+      const followers = await storage.getFollowers(userId);
+      console.log(`Broadcasting to ${followers.length} followers of user ${userId}`);
       
-      if (client.readyState === WebSocket.OPEN && isFollower) {
-        client.send(JSON.stringify(data));
-      }
-    });
+      let broadcasted = 0;
+      clients.forEach((clientUserId, client) => {
+        // Check if this client is a follower (using MongoDB _id)
+        const isFollower = followers.some(follower => {
+          const followerId = follower._id ? follower._id.toString() : '';
+          return followerId === clientUserId;
+        });
+        
+        if (client.readyState === WebSocket.OPEN && isFollower) {
+          client.send(JSON.stringify(data));
+          broadcasted++;
+        }
+      });
+      
+      console.log(`Successfully broadcast to ${broadcasted} online followers`);
+    } catch (err) {
+      console.error('Error broadcasting to followers:', err);
+    }
   }
   
   // Broadcast a message to a specific user
-  function broadcastToUser(userId: number, data: any) {
+  function broadcastToUser(userId: string, data: any) {
+    let sent = false;
     clients.forEach((clientUserId, client) => {
       if (client.readyState === WebSocket.OPEN && clientUserId === userId) {
         client.send(JSON.stringify(data));
+        sent = true;
       }
     });
+    console.log(`Broadcast to user ${userId}: ${sent ? 'Sent' : 'User not online'}`);
   }
 
   // Blog Routes
@@ -307,12 +389,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authorId: req.user.id
       });
       
-      // Broadcast to followers
-      broadcastToFollowers(req.user.id, {
-        type: 'new_blog',
-        blog,
-        user: req.user
-      });
+      // Broadcast to followers using MongoDB _id
+      const currentUserId = req.user?._id?.toString();
+      if (currentUserId) {
+        console.log(`Broadcasting new blog to followers of user ${currentUserId}`);
+        broadcastToFollowers(currentUserId, {
+          type: 'new_blog',
+          blog,
+          user: req.user
+        });
+      }
       
       res.status(201).json(blog);
     } catch (error) {
