@@ -29,6 +29,7 @@ export default function FollowersDialog({
   } = useQuery({
     queryKey: [type === 'followers' ? `/api/users/${userId}/followers` : `/api/users/${userId}/following`],
     queryFn: async () => {
+      console.log("Fetching", type, "list for user", userId);
       const res = await fetch(type === 'followers' 
         ? `/api/users/${userId}/followers` 
         : `/api/users/${userId}/following`
@@ -41,11 +42,12 @@ export default function FollowersDialog({
 
   useEffect(() => {
     if (users && user) {
+      console.log(`Checking follow status for ${users.length} users`);
       const checkFollowStatus = async () => {
         const statuses: Record<string, boolean> = {};
         
         for (const followUser of users) {
-          // Don't check follow status for the current user
+          // Skip checking follow status for the current user
           if (followUser._id === user._id) {
             statuses[followUser._id] = false;
             continue;
@@ -73,6 +75,7 @@ export default function FollowersDialog({
     if (!user) return;
     
     try {
+      console.log("Following user:", followUserId);
       await apiRequest("POST", `/api/users/${followUserId}/follow`);
       setFollowStatus(prev => ({ ...prev, [followUserId]: true }));
       
@@ -88,6 +91,7 @@ export default function FollowersDialog({
     if (!user) return;
     
     try {
+      console.log("Unfollowing user:", followUserId);
       await apiRequest("DELETE", `/api/users/${followUserId}/follow`);
       setFollowStatus(prev => ({ ...prev, [followUserId]: false }));
       
@@ -126,7 +130,7 @@ export default function FollowersDialog({
                 className="flex items-center justify-between py-3 px-1 border-b border-border last:border-b-0"
               >
                 <Link href={`/profile/${followUser._id}`}>
-                  <a className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary">
                       {followUser.profileImage ? (
                         <img 
@@ -144,7 +148,7 @@ export default function FollowersDialog({
                       <p className="font-medium">{followUser.displayName}</p>
                       <p className="text-sm text-muted-foreground">@{followUser.username}</p>
                     </div>
-                  </a>
+                  </div>
                 </Link>
                 
                 {/* Don't show follow/unfollow button for current user */}

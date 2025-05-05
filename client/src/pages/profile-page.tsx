@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
 import BlogCard from "@/components/blog/BlogCard";
 import ProfileEditDialog from "@/components/profile/ProfileEditDialog";
+import FollowersDialog from "@/components/profile/FollowersDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,6 +49,7 @@ export default function ProfilePage() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [followDialogType, setFollowDialogType] = useState<'followers' | 'following' | null>(null);
   
   // Properly handle userId to avoid MongoDB ObjectID casting errors
   // Only use values that are defined and not "undefined"
@@ -212,6 +214,14 @@ export default function ProfilePage() {
     navigate(-1);
   };
 
+  const handleViewFollowing = () => {
+    setFollowDialogType('following');
+  };
+
+  const handleViewFollowers = () => {
+    setFollowDialogType('followers');
+  };
+
   if (isProfileLoading) {
     return (
       <MainLayout pageTitle="Profile">
@@ -311,11 +321,17 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
-              <button className="hover:underline">
+              <button 
+                className="hover:underline" 
+                onClick={handleViewFollowing}
+              >
                 <span className="font-bold">{profile.followingCount || 0}</span>
                 <span className="text-muted-foreground ml-1">Following</span>
               </button>
-              <button className="hover:underline">
+              <button 
+                className="hover:underline"
+                onClick={handleViewFollowers}
+              >
                 <span className="font-bold">{profile.followerCount || 0}</span>
                 <span className="text-muted-foreground ml-1">Followers</span>
               </button>
@@ -406,6 +422,16 @@ export default function ProfilePage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Dialogs */}
+        {userId && followDialogType && (
+          <FollowersDialog
+            userId={userId}
+            type={followDialogType}
+            isOpen={!!followDialogType}
+            onClose={() => setFollowDialogType(null)}
+          />
+        )}
       </div>
     </MainLayout>
   );
