@@ -23,6 +23,7 @@ export default function MessagesPage() {
   const [isClient, setIsClient] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [localMessages, setLocalMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -209,12 +210,19 @@ export default function MessagesPage() {
     };
   }, [typingTimeout, id]);
   
+  // Update local messages when API messages change
+  useEffect(() => {
+    if (messages) {
+      setLocalMessages(messages);
+    }
+  }, [messages]);
+  
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [localMessages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -517,7 +525,7 @@ export default function MessagesPage() {
                     Try Again
                   </Button>
                 </div>
-              ) : messages && messages.length === 0 ? (
+              ) : localMessages && localMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No messages yet</p>
@@ -527,50 +535,89 @@ export default function MessagesPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages && messages.map((msg: any) => {
-                    // Add debug output to console for each message
-                    console.log("DEBUG MESSAGE:", {
-                      sender: msg.senderId,
-                      receiver: msg.receiverId,
-                      currentUser: currentUser?._id,
-                      content: msg.content
-                    });
+                  {localMessages && localMessages.map((msg: any) => {
+                    // For debugging - check current user vs message sender
+                    const currentUserId = String(currentUser?._id || "");
+                    const msgSenderId = String(msg.sender?._id || msg.senderId || "");
                     
-                    // Hard-code authentication username matches for testing
-                    // Since we want to see sent messages on the right
-                    const messageFromAshish = msg.content === "hello" || 
-                                             msg.content === "hello3" || 
-                                             msg.content === "hi2" ||
-                                             msg.content === "hi3";
+                    // Messages from current user should be on the right
+                    const isFromCurrentUser = msgSenderId === currentUserId;
                     
-                    // Reverse the display logic temporarily to test
                     return (
                       <div 
                         key={msg._id} 
                         className="flex w-full"
-                        style={{ justifyContent: messageFromAshish ? 'flex-end' : 'flex-start' }}
+                        style={{ justifyContent: isFromCurrentUser ? 'flex-end' : 'flex-start' }}
                       >
                         <div 
                           style={{ 
                             maxWidth: '70%', 
                             padding: '0.5rem 1rem',
-                            backgroundColor: messageFromAshish ? '#3b82f6' : '#374151',
-                            color: messageFromAshish ? 'white' : '#f9fafb',
-                            borderRadius: messageFromAshish 
+                            backgroundColor: isFromCurrentUser ? '#3b82f6' : '#374151',
+                            color: 'white',
+                            borderRadius: isFromCurrentUser 
                               ? '0.5rem 0 0.5rem 0.5rem' 
-                              : '0 0.5rem 0.5rem 0.5rem'
+                              : '0 0.5rem 0.5rem 0.5rem',
+                            position: 'relative'
                           }}
                         >
                           <p>{msg.content}</p>
                           <p style={{ 
                               fontSize: '0.75rem', 
                               marginTop: '0.25rem',
-                              color: messageFromAshish ? 'rgba(255,255,255,0.7)' : '#9ca3af',
-                              textAlign: messageFromAshish ? 'right' : 'left'
+                              color: isFromCurrentUser ? 'rgba(255,255,255,0.7)' : '#9ca3af',
+                              textAlign: isFromCurrentUser ? 'right' : 'left'
                             }}
                           >
                             {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
                           </p>
+                          
+                          {/* Message actions dropdown */}
+                          <div 
+                            className="absolute top-0 right-0 opacity-0 hover:opacity-100 group"
+                            style={{ 
+                              right: isFromCurrentUser ? 'auto' : '0', 
+                              left: isFromCurrentUser ? '0' : 'auto'
+                            }}
+                          >
+                            <button 
+                              className="text-gray-400 hover:text-white p-1"
+                              title="Message options"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Confirm before deleting
+                                if (confirm("Delete this message?")) {
+                                  // Make API call to delete message
+                                  fetch(`/api/messages/${msg._id}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                      'Content-Type': 'application/json'
+                                    }
+                                  })
+                                  .then(response => {
+                                    if (response.ok) {
+                                      // Remove message from local state
+                                      setLocalMessages(prev => 
+                                        prev.filter(m => m._id !== msg._id)
+                                      );
+                                    } else {
+                                      console.error("Failed to delete message");
+                                      alert("Failed to delete message");
+                                    }
+                                  })
+                                  .catch(err => {
+                                    console.error("Error deleting message:", err);
+                                    alert("Error deleting message");
+                                  });
+                                }
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );

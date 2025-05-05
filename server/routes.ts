@@ -121,9 +121,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Direct message from ${data.from} to ${data.to}`);
           
           try {
-            // Check if this message has a temp_id from the client to prevent duplication
-            // The client will now rely on WebSocket for sending messages,
-            // not making additional API calls for the same message
+            // Verify users exist
+            const sender = await storage.getUser(data.from);
+            const receiver = await storage.getUser(data.to);
+            
+            if (!sender || !receiver) {
+              console.error(`Invalid users in message: sender=${data.from}, receiver=${data.to}`);
+              return;
+            }
+            
+            console.log(`Verified sender: ${sender.username}, receiver: ${receiver.username}`);
             
             // Save message to database
             const savedMessage = await storage.sendMessage({
@@ -138,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             broadcastToUser(data.to, {
               type: 'new_message',
               message: savedMessage,
-              sender: await storage.getUser(data.from)
+              sender: sender
             });
             
             // Also broadcast to the sender to update their UI immediately
@@ -1318,6 +1325,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error sending message:", error);
       res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+  
+  // Delete a message
+  app.delete("/api/messages/:messageId", isAuthenticated, async (req, res) => {
+    try {
+      const messageId = req.params.messageId;
+      
+      // For MongoDB, use the _id property as a string
+      const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
+      
+      // Get the message
+      const message = await storage.getMessageById(messageId);
+      
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      // Check if user is authorized (message sender)
+      if (String(message.senderId) !== currentUserId) {
+        return res.status(403).json({ message: "Not authorized to delete this message" });
+      }
+      
+      // Delete the message
+      const success = await storage.deleteMessage(messageId);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete message" });
+      }
+      
+      // Notify both users about the message deletion
+      const otherUserId = String(message.senderId) === currentUserId 
+        ? String(message.receiverId) 
+        : String(message.senderId);
+      
+      // Broadcast to both users
+      broadcastToUser(currentUserId, {
+        type: 'message_deleted',
+        messageId
+      });
+      
+      broadcastToUser(otherUserId, {
+        type: 'message_deleted',
+        messageId
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      res.status(500).json({ message: "Failed to delete message" });
     }
   });
 

@@ -101,6 +101,12 @@ class WebSocketService {
         queryClient.invalidateQueries({ queryKey: [`/api/messages/${data.sender?._id}`] });
         queryClient.invalidateQueries({ queryKey: ['/api/messages/conversations'] });
         break;
+      
+      case 'message_deleted':
+        // Invalidate messages cache when a message is deleted
+        queryClient.invalidateQueries({ queryKey: ['/api/messages'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/messages/conversations'] });
+        break;
         
       case 'new_blog':
         // Invalidate blogs feed and trending

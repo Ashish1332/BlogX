@@ -58,7 +58,9 @@ export interface IStorage {
   
   // Message methods
   getMessages: (userId1: string, userId2: string, limit?: number, offset?: number) => Promise<any[]>;
+  getMessageById: (messageId: string) => Promise<any | null>;
   sendMessage: (message: any) => Promise<any>;
+  deleteMessage: (messageId: string) => Promise<boolean>;
   markMessageAsRead: (id: string) => Promise<boolean>;
   markAllMessagesAsRead: (senderId: string, receiverId: string) => Promise<boolean>;
   getConversations: (userId: string) => Promise<any[]>;
@@ -786,6 +788,26 @@ export class DatabaseStorage implements IStorage {
       return result.modifiedCount > 0;
     } catch (error) {
       console.error("Error marking all messages as read:", error);
+      return false;
+    }
+  }
+  
+  async getMessageById(messageId: string): Promise<any | null> {
+    try {
+      const message = await Message.findById(messageId).lean();
+      return message;
+    } catch (error) {
+      console.error("Error getting message by ID:", error);
+      return null;
+    }
+  }
+  
+  async deleteMessage(messageId: string): Promise<boolean> {
+    try {
+      const result = await Message.findByIdAndDelete(messageId);
+      return !!result;
+    } catch (error) {
+      console.error("Error deleting message:", error);
       return false;
     }
   }
