@@ -348,21 +348,44 @@ export default function ProfilePage() {
                                       try {
                                         console.log('Uploading profile image:', file.name, file.type, file.size);
                                         
+                                        // Use a timeout to ensure fetch doesn't hang indefinitely
+                                        const controller = new AbortController();
+                                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+                                        
                                         const res = await fetch('/api/upload/profile-image', {
                                           method: 'POST',
                                           body: formData,
-                                          credentials: 'include'
+                                          credentials: 'include',
+                                          signal: controller.signal
                                         });
+                                        
+                                        clearTimeout(timeoutId); // Clear timeout after request completes
+                                        
+                                        // Log the raw response for debugging
+                                        console.log('Profile image upload response status:', res.status);
                                         
                                         // Handle non-2xx responses with more detail
                                         if (!res.ok) {
-                                          const errorText = await res.text();
-                                          console.error('Profile image upload failed:', res.status, errorText);
-                                          throw new Error(`Failed to upload image: ${res.status} ${errorText}`);
+                                          let errorMessage = 'Failed to upload image';
+                                          try {
+                                            const errorData = await res.json();
+                                            console.error('Profile image upload failed:', res.status, errorData);
+                                            errorMessage = errorData.message || errorMessage;
+                                          } catch (parseError) {
+                                            const errorText = await res.text();
+                                            console.error('Profile image upload failed:', res.status, errorText);
+                                            errorMessage = `${errorMessage}: ${res.status} ${errorText || ''}`;
+                                          }
+                                          throw new Error(errorMessage);
                                         }
                                         
+                                        // Parse the response
                                         const data = await res.json();
                                         console.log('Profile image upload successful:', data);
+                                        
+                                        if (!data.success || !data.fileUrl) {
+                                          throw new Error('Server returned success but no file URL was provided');
+                                        }
                                         
                                         // Update form value with the new image URL
                                         form.setValue('profileImage', data.fileUrl);
@@ -381,7 +404,7 @@ export default function ProfilePage() {
                                         console.error('Profile image upload error:', error);
                                         toast({
                                           title: 'Upload failed',
-                                          description: (error as Error).message || 'Failed to upload image',
+                                          description: error instanceof Error ? error.message : 'Failed to upload profile image',
                                           variant: 'destructive'
                                         });
                                       }
@@ -447,21 +470,44 @@ export default function ProfilePage() {
                                       try {
                                         console.log('Uploading cover image:', file.name, file.type, file.size);
                                         
+                                        // Use a timeout to ensure fetch doesn't hang indefinitely
+                                        const controller = new AbortController();
+                                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+                                        
                                         const res = await fetch('/api/upload/cover-image', {
                                           method: 'POST',
                                           body: formData,
-                                          credentials: 'include'
+                                          credentials: 'include',
+                                          signal: controller.signal
                                         });
+                                        
+                                        clearTimeout(timeoutId); // Clear timeout after request completes
+                                        
+                                        // Log the raw response for debugging
+                                        console.log('Cover image upload response status:', res.status);
                                         
                                         // Handle non-2xx responses with more detail
                                         if (!res.ok) {
-                                          const errorText = await res.text();
-                                          console.error('Cover image upload failed:', res.status, errorText);
-                                          throw new Error(`Failed to upload image: ${res.status} ${errorText}`);
+                                          let errorMessage = 'Failed to upload image';
+                                          try {
+                                            const errorData = await res.json();
+                                            console.error('Cover image upload failed:', res.status, errorData);
+                                            errorMessage = errorData.message || errorMessage;
+                                          } catch (parseError) {
+                                            const errorText = await res.text();
+                                            console.error('Cover image upload failed:', res.status, errorText);
+                                            errorMessage = `${errorMessage}: ${res.status} ${errorText || ''}`;
+                                          }
+                                          throw new Error(errorMessage);
                                         }
                                         
+                                        // Parse the response
                                         const data = await res.json();
                                         console.log('Cover image upload successful:', data);
+                                        
+                                        if (!data.success || !data.fileUrl) {
+                                          throw new Error('Server returned success but no file URL was provided');
+                                        }
                                         
                                         // Update form value with the new image URL
                                         form.setValue('coverImage', data.fileUrl);
@@ -480,7 +526,7 @@ export default function ProfilePage() {
                                         console.error('Cover image upload error:', error);
                                         toast({
                                           title: 'Upload failed',
-                                          description: (error as Error).message || 'Failed to upload image',
+                                          description: error instanceof Error ? error.message : 'Failed to upload cover image',
                                           variant: 'destructive'
                                         });
                                       }
