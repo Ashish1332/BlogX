@@ -46,8 +46,18 @@ export default function ProfilePage() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  // Don't use empty string as a fallback, as it would cause MongoDB ObjectID casting errors
-  const userId = id || (currentUser?._id || currentUser?.id);
+  
+  // Properly handle userId to avoid MongoDB ObjectID casting errors
+  // Only use values that are defined and not "undefined"
+  let userId: string | undefined = undefined;
+  
+  if (id && id !== "undefined" && id.length === 24) {
+    // Use ID from URL if it's valid
+    userId = id;
+  } else if (currentUser && (currentUser._id || currentUser.id)) {
+    // Otherwise use logged in user's ID if available
+    userId = currentUser._id?.toString() || currentUser.id?.toString();
+  }
   const isOwnProfile = (currentUser?._id === userId) || (currentUser?.id === userId);
 
   const [activeTab, setActiveTab] = useState<"blogs" | "replies" | "media" | "likes">("blogs");

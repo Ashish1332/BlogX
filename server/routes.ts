@@ -587,6 +587,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users/:id", async (req, res) => {
     try {
       const userId = req.params.id;
+      
+      // Early validation of userId before any DB operations
+      if (!userId || userId === "undefined" || userId === "-1" || userId.length !== 24) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -602,8 +608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if current user is following this user
       let isFollowing = false;
-      if (req.isAuthenticated()) {
-        isFollowing = await storage.isFollowing(req.user.id, userId);
+      if (req.isAuthenticated() && req.user && req.user._id) {
+        const currentUserId = req.user._id.toString();
+        isFollowing = await storage.isFollowing(currentUserId, userId);
       }
       
       res.json({
