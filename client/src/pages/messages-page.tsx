@@ -19,11 +19,24 @@ export default function MessagesPage() {
   const [_, navigate] = useLocation();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const [message, setMessage] = useState("");
+  const [messageInputs, setMessageInputs] = useState<{[key: string]: string}>({});
   const [isClient, setIsClient] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [localMessages, setLocalMessages] = useState<any[]>([]);
+  
+  // Get the current message input for this conversation
+  const currentMessage = id ? (messageInputs[id] || "") : "";
+  
+  // Set the message for the current conversation
+  const setCurrentMessage = (text: string) => {
+    if (id) {
+      setMessageInputs(prev => ({
+        ...prev,
+        [id]: text
+      }));
+    }
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -143,7 +156,7 @@ export default function MessagesPage() {
       return await res.json();
     },
     onSuccess: () => {
-      setMessage("");
+      setCurrentMessage("");
       refetchMessages();
       // Also update conversations to show latest message
       queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
@@ -226,7 +239,7 @@ export default function MessagesPage() {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!currentMessage.trim()) return;
     
     // Reset typing state immediately on sending a message
     if (typingTimeout) {
@@ -240,7 +253,7 @@ export default function MessagesPage() {
     }
     
     // Send the message
-    sendMessageMutation.mutate(message);
+    sendMessageMutation.mutate(currentMessage);
   };
 
   // Fetch following list for conversation suggestions
@@ -538,7 +551,21 @@ export default function MessagesPage() {
                   {localMessages && localMessages.map((msg: any) => {
                     // For debugging - check current user vs message sender
                     const currentUserId = String(currentUser?._id || "");
-                    const msgSenderId = String(msg.sender?._id || msg.senderId || "");
+                    
+                    // Make sure we get the right sender ID - check all possible formats
+                    let msgSenderId;
+                    if (msg.sender && msg.sender._id) {
+                      msgSenderId = String(msg.sender._id);
+                    } else if (msg.senderId) {
+                      msgSenderId = String(msg.senderId);
+                    } else {
+                      // If all else fails, check if this might be our message
+                      msgSenderId = "";
+                      console.log("Warning: Could not determine message sender", msg);
+                    }
+                    
+                    // Log for debugging
+                    console.log(`Message: ${msg.content} | Current user: ${currentUserId} | Sender: ${msgSenderId} | ${currentUserId === msgSenderId ? "MY MESSAGE" : "OTHER'S MESSAGE"}`);
                     
                     // Messages from current user should be on the right
                     const isFromCurrentUser = msgSenderId === currentUserId;
@@ -644,9 +671,9 @@ export default function MessagesPage() {
                 <Input
                   type="text"
                   placeholder="Type a message..."
-                  value={message}
+                  value={currentMessage}
                   onChange={(e) => {
-                    setMessage(e.target.value);
+                    setCurrentMessage(e.target.value);
                     
                     // Handle typing indicator
                     if (id && webSocketService.isConnected()) {
@@ -673,7 +700,7 @@ export default function MessagesPage() {
                 <Button 
                   type="submit" 
                   size="icon"
-                  disabled={!message.trim() || sendMessageMutation.isPending}
+                  disabled={!currentMessage.trim() || sendMessageMutation.isPending}
                 >
                   {sendMessageMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
