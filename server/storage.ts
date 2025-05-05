@@ -1,596 +1,767 @@
-import { db } from "@db";
-import * as schema from "@shared/schema";
-import { eq, and, desc, or, asc, sql } from "drizzle-orm";
+import { db, User, Blog, Comment, Like, Bookmark, Follower, Notification, Message } from "@db";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
-import { pool } from "@db";
-import { WebSocketServer } from "ws";
-
-const PostgresSessionStore = connectPg(session);
+import MongoStore from "connect-mongo";
+import mongoose from "mongoose";
 
 export interface IStorage {
   // User methods
-  getUser: (id: number) => Promise<schema.User | undefined>;
-  getUserByUsername: (username: string) => Promise<schema.User | undefined>;
-  createUser: (user: Omit<schema.InsertUser, "profileImage" | "coverImage" | "bio"> & { 
-    profileImage?: string;
-    coverImage?: string;
-    bio?: string;
-  }) => Promise<schema.User>;
-  updateUser: (id: number, userData: Partial<schema.User>) => Promise<schema.User | undefined>;
+  getUser: (id: string) => Promise<any | undefined>;
+  getUserByUsername: (username: string) => Promise<any | undefined>;
+  createUser: (user: any) => Promise<any>;
+  updateUser: (id: string, userData: any) => Promise<any | undefined>;
   
   // Blog methods
-  getBlogs: (limit?: number, offset?: number) => Promise<(schema.Blog & { author: schema.User })[]>;
-  getBlogsByUser: (userId: number, limit?: number, offset?: number) => Promise<(schema.Blog & { author: schema.User })[]>;
-  getBlogsByFollowing: (userId: number, limit?: number, offset?: number) => Promise<(schema.Blog & { author: schema.User })[]>;
-  getBlog: (id: number) => Promise<(schema.Blog & { author: schema.User }) | undefined>;
-  createBlog: (blog: Omit<schema.InsertBlog, "authorId" | "createdAt" | "updatedAt"> & { authorId: number }) => Promise<schema.Blog>;
-  updateBlog: (id: number, blogData: Partial<schema.Blog>) => Promise<schema.Blog | undefined>;
-  deleteBlog: (id: number) => Promise<boolean>;
+  getBlogs: (limit?: number, offset?: number) => Promise<any[]>;
+  getBlogsByUser: (userId: string, limit?: number, offset?: number) => Promise<any[]>;
+  getBlogsByFollowing: (userId: string, limit?: number, offset?: number) => Promise<any[]>;
+  getBlog: (id: string) => Promise<any | undefined>;
+  createBlog: (blog: any & { authorId: string }) => Promise<any>;
+  updateBlog: (id: string, blogData: any) => Promise<any | undefined>;
+  deleteBlog: (id: string) => Promise<boolean>;
   
   // Follower methods
-  followUser: (followerId: number, followingId: number) => Promise<boolean>;
-  unfollowUser: (followerId: number, followingId: number) => Promise<boolean>;
-  getFollowers: (userId: number) => Promise<schema.User[]>;
-  getFollowing: (userId: number) => Promise<schema.User[]>;
-  isFollowing: (followerId: number, followingId: number) => Promise<boolean>;
+  followUser: (followerId: string, followingId: string) => Promise<boolean>;
+  unfollowUser: (followerId: string, followingId: string) => Promise<boolean>;
+  getFollowers: (userId: string) => Promise<any[]>;
+  getFollowing: (userId: string) => Promise<any[]>;
+  isFollowing: (followerId: string, followingId: string) => Promise<boolean>;
   
   // Like methods
-  likeBlog: (userId: number, blogId: number) => Promise<boolean>;
-  unlikeBlog: (userId: number, blogId: number) => Promise<boolean>;
-  isLikedByUser: (userId: number, blogId: number) => Promise<boolean>;
-  getLikeCount: (blogId: number) => Promise<number>;
+  likeBlog: (userId: string, blogId: string) => Promise<boolean>;
+  unlikeBlog: (userId: string, blogId: string) => Promise<boolean>;
+  isLikedByUser: (userId: string, blogId: string) => Promise<boolean>;
+  getLikeCount: (blogId: string) => Promise<number>;
   
   // Comment methods
-  getComments: (blogId: number) => Promise<(schema.Comment & { user: schema.User })[]>;
-  createComment: (comment: Omit<schema.InsertComment, "userId" | "createdAt"> & { userId: number }) => Promise<schema.Comment>;
-  deleteComment: (id: number) => Promise<boolean>;
+  getComments: (blogId: string) => Promise<any[]>;
+  createComment: (comment: any & { userId: string }) => Promise<any>;
+  deleteComment: (id: string) => Promise<boolean>;
   
   // Bookmark methods
-  bookmarkBlog: (userId: number, blogId: number) => Promise<boolean>;
-  unbookmarkBlog: (userId: number, blogId: number) => Promise<boolean>;
-  isBookmarkedByUser: (userId: number, blogId: number) => Promise<boolean>;
-  getBookmarks: (userId: number) => Promise<(schema.Blog & { author: schema.User })[]>;
+  bookmarkBlog: (userId: string, blogId: string) => Promise<boolean>;
+  unbookmarkBlog: (userId: string, blogId: string) => Promise<boolean>;
+  isBookmarkedByUser: (userId: string, blogId: string) => Promise<boolean>;
+  getBookmarks: (userId: string) => Promise<any[]>;
   
   // Notification methods
   createNotification: (notification: { 
-    userId: number, 
-    actorId?: number, 
+    userId: string, 
+    actorId?: string, 
     type: string, 
-    blogId?: number, 
-    commentId?: number 
-  }) => Promise<schema.Notification>;
-  getNotifications: (userId: number, limit?: number, offset?: number) => Promise<(schema.Notification & { 
-    actor?: schema.User, 
-    blog?: schema.Blog 
-  })[]>;
-  markNotificationAsRead: (id: number) => Promise<boolean>;
-  markAllNotificationsAsRead: (userId: number) => Promise<boolean>;
-  getUnreadNotificationCount: (userId: number) => Promise<number>;
+    blogId?: string, 
+    commentId?: string 
+  }) => Promise<any>;
+  getNotifications: (userId: string, limit?: number, offset?: number) => Promise<any[]>;
+  markNotificationAsRead: (id: string) => Promise<boolean>;
+  markAllNotificationsAsRead: (userId: string) => Promise<boolean>;
+  getUnreadNotificationCount: (userId: string) => Promise<number>;
   
   // Message methods
-  getMessages: (userId1: number, userId2: number, limit?: number, offset?: number) => Promise<schema.Message[]>;
-  sendMessage: (message: Omit<schema.InsertMessage, "createdAt" | "read">) => Promise<schema.Message>;
-  markMessageAsRead: (id: number) => Promise<boolean>;
-  markAllMessagesAsRead: (senderId: number, receiverId: number) => Promise<boolean>;
-  getConversations: (userId: number) => Promise<{ user: schema.User, lastMessage: schema.Message, unreadCount: number }[]>;
+  getMessages: (userId1: string, userId2: string, limit?: number, offset?: number) => Promise<any[]>;
+  sendMessage: (message: any) => Promise<any>;
+  markMessageAsRead: (id: string) => Promise<boolean>;
+  markAllMessagesAsRead: (senderId: string, receiverId: string) => Promise<boolean>;
+  getConversations: (userId: string) => Promise<any[]>;
   
   // Search methods
-  searchUsers: (query: string) => Promise<schema.User[]>;
-  searchBlogs: (query: string) => Promise<(schema.Blog & { author: schema.User })[]>;
+  searchUsers: (query: string) => Promise<any[]>;
+  searchBlogs: (query: string) => Promise<any[]>;
   
   // Trending methods
-  getTrendingBlogs: (limit?: number) => Promise<(schema.Blog & { author: schema.User, likeCount: number, commentCount: number })[]>;
+  getTrendingBlogs: (limit?: number) => Promise<any[]>;
   
   // Session store for authentication
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
   
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is required for session store");
+    }
+    
+    this.sessionStore = MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: 'sessions'
     });
   }
   
   // User methods
-  async getUser(id: number): Promise<schema.User | undefined> {
-    const users = await db.select().from(schema.users).where(eq(schema.users.id, id)).limit(1);
-    return users[0];
+  async getUser(id: string): Promise<any | undefined> {
+    try {
+      const user = await User.findById(id);
+      return user?.toObject();
+    } catch (error) {
+      console.error("Error getting user:", error);
+      return undefined;
+    }
   }
   
-  async getUserByUsername(username: string): Promise<schema.User | undefined> {
-    const users = await db.select().from(schema.users).where(eq(schema.users.username, username)).limit(1);
-    return users[0];
+  async getUserByUsername(username: string): Promise<any | undefined> {
+    try {
+      const user = await User.findOne({ username });
+      return user?.toObject();
+    } catch (error) {
+      console.error("Error getting user by username:", error);
+      return undefined;
+    }
   }
   
-  async createUser(user: Omit<schema.InsertUser, "profileImage" | "coverImage" | "bio"> & { 
-    profileImage?: string;
-    coverImage?: string;
-    bio?: string;
-  }): Promise<schema.User> {
-    const [newUser] = await db.insert(schema.users).values(user).returning();
-    return newUser;
+  async createUser(user: any): Promise<any> {
+    try {
+      const newUser = new User(user);
+      await newUser.save();
+      return newUser.toObject();
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
   }
   
-  async updateUser(id: number, userData: Partial<schema.User>): Promise<schema.User | undefined> {
-    const [updatedUser] = await db.update(schema.users)
-      .set(userData)
-      .where(eq(schema.users.id, id))
-      .returning();
-    return updatedUser;
+  async updateUser(id: string, userData: any): Promise<any | undefined> {
+    try {
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { $set: userData },
+        { new: true }
+      );
+      return updatedUser?.toObject();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      return undefined;
+    }
   }
   
   // Blog methods
-  async getBlogs(limit = 10, offset = 0): Promise<(schema.Blog & { author: schema.User })[]> {
-    return await db.query.blogs.findMany({
-      with: { author: true },
-      orderBy: desc(schema.blogs.createdAt),
-      limit,
-      offset
-    });
-  }
-  
-  async getBlogsByUser(userId: number, limit = 10, offset = 0): Promise<(schema.Blog & { author: schema.User })[]> {
-    return await db.query.blogs.findMany({
-      where: eq(schema.blogs.authorId, userId),
-      with: { author: true },
-      orderBy: desc(schema.blogs.createdAt),
-      limit,
-      offset
-    });
-  }
-  
-  async getBlogsByFollowing(userId: number, limit = 10, offset = 0): Promise<(schema.Blog & { author: schema.User })[]> {
-    const followingUsers = await db.select({ followingId: schema.followers.followingId })
-      .from(schema.followers)
-      .where(eq(schema.followers.followerId, userId));
-      
-    const followingIds = followingUsers.map(f => f.followingId);
-    
-    if (followingIds.length === 0) {
+  async getBlogs(limit = 10, offset = 0): Promise<any[]> {
+    try {
+      const blogs = await Blog.find()
+        .populate('author')
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit);
+      return blogs.map(blog => blog.toObject());
+    } catch (error) {
+      console.error("Error getting blogs:", error);
       return [];
     }
-    
-    return await db.query.blogs.findMany({
-      where: sql`${schema.blogs.authorId} IN ${followingIds}`,
-      with: { author: true },
-      orderBy: desc(schema.blogs.createdAt),
-      limit,
-      offset
-    });
   }
   
-  async getBlog(id: number): Promise<(schema.Blog & { author: schema.User }) | undefined> {
-    return await db.query.blogs.findFirst({
-      where: eq(schema.blogs.id, id),
-      with: { author: true }
-    });
+  async getBlogsByUser(userId: string, limit = 10, offset = 0): Promise<any[]> {
+    try {
+      const blogs = await Blog.find({ author: userId })
+        .populate('author')
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit);
+      return blogs.map(blog => blog.toObject());
+    } catch (error) {
+      console.error("Error getting blogs by user:", error);
+      return [];
+    }
   }
   
-  async createBlog(blog: Omit<schema.InsertBlog, "authorId" | "createdAt" | "updatedAt"> & { authorId: number }): Promise<schema.Blog> {
-    const [newBlog] = await db.insert(schema.blogs).values(blog).returning();
-    return newBlog;
+  async getBlogsByFollowing(userId: string, limit = 10, offset = 0): Promise<any[]> {
+    try {
+      const following = await Follower.find({ follower: userId });
+      const followingIds = following.map(f => f.following);
+      
+      if (followingIds.length === 0) {
+        return [];
+      }
+      
+      const blogs = await Blog.find({ author: { $in: followingIds } })
+        .populate('author')
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit);
+      
+      return blogs.map(blog => blog.toObject());
+    } catch (error) {
+      console.error("Error getting blogs by following:", error);
+      return [];
+    }
   }
   
-  async updateBlog(id: number, blogData: Partial<schema.Blog>): Promise<schema.Blog | undefined> {
-    const [updatedBlog] = await db.update(schema.blogs)
-      .set({ ...blogData, updatedAt: new Date() })
-      .where(eq(schema.blogs.id, id))
-      .returning();
-    return updatedBlog;
+  async getBlog(id: string): Promise<any | undefined> {
+    try {
+      const blog = await Blog.findById(id).populate('author');
+      return blog?.toObject();
+    } catch (error) {
+      console.error("Error getting blog:", error);
+      return undefined;
+    }
   }
   
-  async deleteBlog(id: number): Promise<boolean> {
-    const deleted = await db.delete(schema.blogs).where(eq(schema.blogs.id, id)).returning();
-    return deleted.length > 0;
+  async createBlog(blog: any & { authorId: string }): Promise<any> {
+    try {
+      const newBlog = new Blog({
+        title: blog.title,
+        content: blog.content,
+        image: blog.image,
+        author: blog.authorId
+      });
+      await newBlog.save();
+      const populatedBlog = await Blog.findById(newBlog._id).populate('author');
+      return populatedBlog?.toObject();
+    } catch (error) {
+      console.error("Error creating blog:", error);
+      throw error;
+    }
+  }
+  
+  async updateBlog(id: string, blogData: any): Promise<any | undefined> {
+    try {
+      blogData.updatedAt = new Date();
+      const updatedBlog = await Blog.findByIdAndUpdate(
+        id,
+        { $set: blogData },
+        { new: true }
+      ).populate('author');
+      return updatedBlog?.toObject();
+    } catch (error) {
+      console.error("Error updating blog:", error);
+      return undefined;
+    }
+  }
+  
+  async deleteBlog(id: string): Promise<boolean> {
+    try {
+      const result = await Blog.deleteOne({ _id: id });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error("Error deleting blog:", error);
+      return false;
+    }
   }
   
   // Follower methods
-  async followUser(followerId: number, followingId: number): Promise<boolean> {
+  async followUser(followerId: string, followingId: string): Promise<boolean> {
     try {
-      await db.insert(schema.followers).values({ followerId, followingId }).returning();
+      const existingFollow = await Follower.findOne({
+        follower: followerId,
+        following: followingId
+      });
+      
+      if (existingFollow) {
+        return true; // Already following
+      }
+      
+      const newFollow = new Follower({
+        follower: followerId,
+        following: followingId
+      });
+      
+      await newFollow.save();
       return true;
     } catch (error) {
+      console.error("Error following user:", error);
       return false;
     }
   }
   
-  async unfollowUser(followerId: number, followingId: number): Promise<boolean> {
-    const deleted = await db.delete(schema.followers)
-      .where(and(
-        eq(schema.followers.followerId, followerId),
-        eq(schema.followers.followingId, followingId)
-      ))
-      .returning();
-    return deleted.length > 0;
+  async unfollowUser(followerId: string, followingId: string): Promise<boolean> {
+    try {
+      const result = await Follower.deleteOne({
+        follower: followerId,
+        following: followingId
+      });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error("Error unfollowing user:", error);
+      return false;
+    }
   }
   
-  async getFollowers(userId: number): Promise<schema.User[]> {
-    const followers = await db.select()
-      .from(schema.followers)
-      .where(eq(schema.followers.followingId, userId))
-      .innerJoin(schema.users, eq(schema.followers.followerId, schema.users.id));
-    
-    return followers.map(f => f.users);
+  async getFollowers(userId: string): Promise<any[]> {
+    try {
+      const followers = await Follower.find({ following: userId }).populate('follower');
+      return followers.map(f => f.follower.toObject());
+    } catch (error) {
+      console.error("Error getting followers:", error);
+      return [];
+    }
   }
   
-  async getFollowing(userId: number): Promise<schema.User[]> {
-    const following = await db.select()
-      .from(schema.followers)
-      .where(eq(schema.followers.followerId, userId))
-      .innerJoin(schema.users, eq(schema.followers.followingId, schema.users.id));
-    
-    return following.map(f => f.users);
+  async getFollowing(userId: string): Promise<any[]> {
+    try {
+      const following = await Follower.find({ follower: userId }).populate('following');
+      return following.map(f => f.following.toObject());
+    } catch (error) {
+      console.error("Error getting following:", error);
+      return [];
+    }
   }
   
-  async isFollowing(followerId: number, followingId: number): Promise<boolean> {
-    const result = await db.select()
-      .from(schema.followers)
-      .where(and(
-        eq(schema.followers.followerId, followerId),
-        eq(schema.followers.followingId, followingId)
-      ))
-      .limit(1);
-    
-    return result.length > 0;
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    try {
+      const follow = await Follower.findOne({
+        follower: followerId,
+        following: followingId
+      });
+      return !!follow;
+    } catch (error) {
+      console.error("Error checking if following:", error);
+      return false;
+    }
   }
   
   // Like methods
-  async likeBlog(userId: number, blogId: number): Promise<boolean> {
+  async likeBlog(userId: string, blogId: string): Promise<boolean> {
     try {
-      await db.insert(schema.likes).values({ userId, blogId }).returning();
+      const existingLike = await Like.findOne({
+        user: userId,
+        blog: blogId
+      });
+      
+      if (existingLike) {
+        return true; // Already liked
+      }
+      
+      const newLike = new Like({
+        user: userId,
+        blog: blogId
+      });
+      
+      await newLike.save();
       return true;
     } catch (error) {
+      console.error("Error liking blog:", error);
       return false;
     }
   }
   
-  async unlikeBlog(userId: number, blogId: number): Promise<boolean> {
-    const deleted = await db.delete(schema.likes)
-      .where(and(
-        eq(schema.likes.userId, userId),
-        eq(schema.likes.blogId, blogId)
-      ))
-      .returning();
-    return deleted.length > 0;
+  async unlikeBlog(userId: string, blogId: string): Promise<boolean> {
+    try {
+      const result = await Like.deleteOne({
+        user: userId,
+        blog: blogId
+      });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error("Error unliking blog:", error);
+      return false;
+    }
   }
   
-  async isLikedByUser(userId: number, blogId: number): Promise<boolean> {
-    const result = await db.select()
-      .from(schema.likes)
-      .where(and(
-        eq(schema.likes.userId, userId),
-        eq(schema.likes.blogId, blogId)
-      ))
-      .limit(1);
-    
-    return result.length > 0;
+  async isLikedByUser(userId: string, blogId: string): Promise<boolean> {
+    try {
+      const like = await Like.findOne({
+        user: userId,
+        blog: blogId
+      });
+      return !!like;
+    } catch (error) {
+      console.error("Error checking if blog is liked by user:", error);
+      return false;
+    }
   }
   
-  async getLikeCount(blogId: number): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(schema.likes)
-      .where(eq(schema.likes.blogId, blogId));
-    
-    return result[0]?.count || 0;
+  async getLikeCount(blogId: string): Promise<number> {
+    try {
+      return await Like.countDocuments({ blog: blogId });
+    } catch (error) {
+      console.error("Error getting like count:", error);
+      return 0;
+    }
   }
   
   // Comment methods
-  async getComments(blogId: number): Promise<(schema.Comment & { user: schema.User })[]> {
-    return await db.query.comments.findMany({
-      where: eq(schema.comments.blogId, blogId),
-      with: { user: true },
-      orderBy: asc(schema.comments.createdAt)
-    });
-  }
-  
-  async createComment(comment: Omit<schema.InsertComment, "userId" | "createdAt"> & { userId: number }): Promise<schema.Comment> {
-    const [newComment] = await db.insert(schema.comments).values(comment).returning();
-    return newComment;
-  }
-  
-  async deleteComment(id: number): Promise<boolean> {
-    const deleted = await db.delete(schema.comments).where(eq(schema.comments.id, id)).returning();
-    return deleted.length > 0;
-  }
-  
-  // Bookmark methods
-  async bookmarkBlog(userId: number, blogId: number): Promise<boolean> {
+  async getComments(blogId: string): Promise<any[]> {
     try {
-      await db.insert(schema.bookmarks).values({ userId, blogId }).returning();
-      return true;
+      const comments = await Comment.find({ blog: blogId })
+        .populate('user')
+        .sort({ createdAt: 1 });
+      return comments.map(comment => comment.toObject());
     } catch (error) {
+      console.error("Error getting comments:", error);
+      return [];
+    }
+  }
+  
+  async createComment(comment: any & { userId: string }): Promise<any> {
+    try {
+      const newComment = new Comment({
+        content: comment.content,
+        user: comment.userId,
+        blog: comment.blogId
+      });
+      await newComment.save();
+      const populatedComment = await Comment.findById(newComment._id).populate('user');
+      return populatedComment?.toObject();
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      throw error;
+    }
+  }
+  
+  async deleteComment(id: string): Promise<boolean> {
+    try {
+      const result = await Comment.deleteOne({ _id: id });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error("Error deleting comment:", error);
       return false;
     }
   }
   
-  async unbookmarkBlog(userId: number, blogId: number): Promise<boolean> {
-    const deleted = await db.delete(schema.bookmarks)
-      .where(and(
-        eq(schema.bookmarks.userId, userId),
-        eq(schema.bookmarks.blogId, blogId)
-      ))
-      .returning();
-    return deleted.length > 0;
-  }
-  
-  async isBookmarkedByUser(userId: number, blogId: number): Promise<boolean> {
-    const result = await db.select()
-      .from(schema.bookmarks)
-      .where(and(
-        eq(schema.bookmarks.userId, userId),
-        eq(schema.bookmarks.blogId, blogId)
-      ))
-      .limit(1);
-    
-    return result.length > 0;
-  }
-  
-  async getBookmarks(userId: number): Promise<(schema.Blog & { author: schema.User })[]> {
-    const bookmarks = await db.select()
-      .from(schema.bookmarks)
-      .where(eq(schema.bookmarks.userId, userId))
-      .innerJoin(schema.blogs, eq(schema.bookmarks.blogId, schema.blogs.id))
-      .orderBy(desc(schema.bookmarks.createdAt));
+  // Bookmark methods
+  async bookmarkBlog(userId: string, blogId: string): Promise<boolean> {
+    try {
+      const existingBookmark = await Bookmark.findOne({
+        user: userId,
+        blog: blogId
+      });
       
-    const blogs = bookmarks.map(b => b.blogs);
-    
-    // Fetch authors for each blog
-    const blogsWithAuthors = await Promise.all(blogs.map(async (blog) => {
-      const author = await this.getUser(blog.authorId);
-      return { ...blog, author: author! };
-    }));
-    
-    return blogsWithAuthors;
+      if (existingBookmark) {
+        return true; // Already bookmarked
+      }
+      
+      const newBookmark = new Bookmark({
+        user: userId,
+        blog: blogId
+      });
+      
+      await newBookmark.save();
+      return true;
+    } catch (error) {
+      console.error("Error bookmarking blog:", error);
+      return false;
+    }
+  }
+  
+  async unbookmarkBlog(userId: string, blogId: string): Promise<boolean> {
+    try {
+      const result = await Bookmark.deleteOne({
+        user: userId,
+        blog: blogId
+      });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error("Error unbookmarking blog:", error);
+      return false;
+    }
+  }
+  
+  async isBookmarkedByUser(userId: string, blogId: string): Promise<boolean> {
+    try {
+      const bookmark = await Bookmark.findOne({
+        user: userId,
+        blog: blogId
+      });
+      return !!bookmark;
+    } catch (error) {
+      console.error("Error checking if blog is bookmarked by user:", error);
+      return false;
+    }
+  }
+  
+  async getBookmarks(userId: string): Promise<any[]> {
+    try {
+      const bookmarks = await Bookmark.find({ user: userId })
+        .populate({
+          path: 'blog',
+          populate: {
+            path: 'author'
+          }
+        })
+        .sort({ createdAt: -1 });
+      
+      return bookmarks.map(bookmark => bookmark.blog.toObject());
+    } catch (error) {
+      console.error("Error getting bookmarks:", error);
+      return [];
+    }
   }
   
   // Notification methods
   async createNotification(notification: { 
-    userId: number, 
-    actorId?: number, 
+    userId: string, 
+    actorId?: string, 
     type: string, 
-    blogId?: number, 
-    commentId?: number 
-  }): Promise<schema.Notification> {
-    const [newNotification] = await db.insert(schema.notifications).values(notification).returning();
-    return newNotification;
+    blogId?: string, 
+    commentId?: string 
+  }): Promise<any> {
+    try {
+      const newNotification = new Notification({
+        user: notification.userId,
+        actor: notification.actorId,
+        type: notification.type,
+        blog: notification.blogId,
+        comment: notification.commentId,
+        read: false
+      });
+      
+      await newNotification.save();
+      const populatedNotification = await Notification.findById(newNotification._id)
+        .populate('actor')
+        .populate('blog');
+        
+      return populatedNotification?.toObject();
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      throw error;
+    }
   }
   
-  async getNotifications(userId: number, limit = 20, offset = 0): Promise<(schema.Notification & { 
-    actor?: schema.User, 
-    blog?: schema.Blog 
-  })[]> {
-    const notifications = await db.query.notifications.findMany({
-      where: eq(schema.notifications.userId, userId),
-      orderBy: desc(schema.notifications.createdAt),
-      limit,
-      offset,
-      with: {
-        actor: true,
-        blog: true
-      }
-    });
-    
-    return notifications;
+  async getNotifications(userId: string, limit = 20, offset = 0): Promise<any[]> {
+    try {
+      const notifications = await Notification.find({ user: userId })
+        .populate('actor')
+        .populate('blog')
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit);
+        
+      return notifications.map(notification => notification.toObject());
+    } catch (error) {
+      console.error("Error getting notifications:", error);
+      return [];
+    }
   }
   
-  async markNotificationAsRead(id: number): Promise<boolean> {
-    const [updatedNotification] = await db.update(schema.notifications)
-      .set({ read: true })
-      .where(eq(schema.notifications.id, id))
-      .returning();
-    return !!updatedNotification;
+  async markNotificationAsRead(id: string): Promise<boolean> {
+    try {
+      const result = await Notification.updateOne(
+        { _id: id },
+        { $set: { read: true } }
+      );
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      return false;
+    }
   }
   
-  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
-    await db.update(schema.notifications)
-      .set({ read: true })
-      .where(eq(schema.notifications.userId, userId))
-      .returning();
-    return true;
+  async markAllNotificationsAsRead(userId: string): Promise<boolean> {
+    try {
+      const result = await Notification.updateMany(
+        { user: userId, read: false },
+        { $set: { read: true } }
+      );
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      return false;
+    }
   }
   
-  async getUnreadNotificationCount(userId: number): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(schema.notifications)
-      .where(and(
-        eq(schema.notifications.userId, userId),
-        eq(schema.notifications.read, false)
-      ));
-    
-    return result[0]?.count || 0;
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    try {
+      return await Notification.countDocuments({ user: userId, read: false });
+    } catch (error) {
+      console.error("Error getting unread notification count:", error);
+      return 0;
+    }
   }
   
   // Message methods
-  async getMessages(userId1: number, userId2: number, limit = 50, offset = 0): Promise<schema.Message[]> {
-    const messages = await db.select()
-      .from(schema.messages)
-      .where(or(
-        and(
-          eq(schema.messages.senderId, userId1),
-          eq(schema.messages.receiverId, userId2)
-        ),
-        and(
-          eq(schema.messages.senderId, userId2),
-          eq(schema.messages.receiverId, userId1)
-        )
-      ))
-      .orderBy(asc(schema.messages.createdAt))
-      .limit(limit)
-      .offset(offset);
-    
-    return messages;
+  async getMessages(userId1: string, userId2: string, limit = 50, offset = 0): Promise<any[]> {
+    try {
+      const messages = await Message.find({
+        $or: [
+          { sender: userId1, receiver: userId2 },
+          { sender: userId2, receiver: userId1 }
+        ]
+      })
+      .sort({ createdAt: 1 })
+      .skip(offset)
+      .limit(limit);
+      
+      return messages.map(message => message.toObject());
+    } catch (error) {
+      console.error("Error getting messages:", error);
+      return [];
+    }
   }
   
-  async sendMessage(message: Omit<schema.InsertMessage, "createdAt" | "read">): Promise<schema.Message> {
-    const [newMessage] = await db.insert(schema.messages).values(message).returning();
-    return newMessage;
+  async sendMessage(message: any): Promise<any> {
+    try {
+      const newMessage = new Message({
+        sender: message.senderId,
+        receiver: message.receiverId,
+        content: message.content,
+        read: false
+      });
+      
+      await newMessage.save();
+      return newMessage.toObject();
+    } catch (error) {
+      console.error("Error sending message:", error);
+      throw error;
+    }
   }
   
-  async markMessageAsRead(id: number): Promise<boolean> {
-    const [updatedMessage] = await db.update(schema.messages)
-      .set({ read: true })
-      .where(eq(schema.messages.id, id))
-      .returning();
-    return !!updatedMessage;
+  async markMessageAsRead(id: string): Promise<boolean> {
+    try {
+      const result = await Message.updateOne(
+        { _id: id },
+        { $set: { read: true } }
+      );
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      return false;
+    }
   }
   
-  async markAllMessagesAsRead(senderId: number, receiverId: number): Promise<boolean> {
-    await db.update(schema.messages)
-      .set({ read: true })
-      .where(and(
-        eq(schema.messages.senderId, senderId),
-        eq(schema.messages.receiverId, receiverId),
-        eq(schema.messages.read, false)
-      ))
-      .returning();
-    return true;
+  async markAllMessagesAsRead(senderId: string, receiverId: string): Promise<boolean> {
+    try {
+      const result = await Message.updateMany(
+        { sender: senderId, receiver: receiverId, read: false },
+        { $set: { read: true } }
+      );
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error("Error marking all messages as read:", error);
+      return false;
+    }
   }
   
-  async getConversations(userId: number): Promise<{ user: schema.User, lastMessage: schema.Message, unreadCount: number }[]> {
-    // Get unique users this user has chatted with
-    const sentToUsers = await db.select({ id: schema.messages.receiverId })
-      .from(schema.messages)
-      .where(eq(schema.messages.senderId, userId))
-      .groupBy(schema.messages.receiverId);
+  async getConversations(userId: string): Promise<any[]> {
+    try {
+      // Find all unique users this user has chatted with
+      const sentMessages = await Message.aggregate([
+        { $match: { sender: new mongoose.Types.ObjectId(userId) } },
+        { $group: { _id: "$receiver" } }
+      ]);
       
-    const receivedFromUsers = await db.select({ id: schema.messages.senderId })
-      .from(schema.messages)
-      .where(eq(schema.messages.receiverId, userId))
-      .groupBy(schema.messages.senderId);
+      const receivedMessages = await Message.aggregate([
+        { $match: { receiver: new mongoose.Types.ObjectId(userId) } },
+        { $group: { _id: "$sender" } }
+      ]);
       
-    // Combine and deduplicate
-    const chatUserIds = [...new Set([
-      ...sentToUsers.map(u => u.id),
-      ...receivedFromUsers.map(u => u.id)
-    ])];
-    
-    // For each user, get the last message and unread count
-    const conversations = await Promise.all(chatUserIds.map(async (chatUserId) => {
-      const user = await this.getUser(chatUserId);
+      // Combine unique user IDs
+      const userIds = [
+        ...sentMessages.map(m => m._id),
+        ...receivedMessages.map(m => m._id)
+      ].filter((id, index, self) => 
+        self.findIndex(i => i.toString() === id.toString()) === index
+      );
       
-      if (!user) {
-        throw new Error(`User with ID ${chatUserId} not found`);
-      }
-      
-      // Get the last message
-      const lastMessages = await db.select()
-        .from(schema.messages)
-        .where(or(
-          and(
-            eq(schema.messages.senderId, userId),
-            eq(schema.messages.receiverId, chatUserId)
-          ),
-          and(
-            eq(schema.messages.senderId, chatUserId),
-            eq(schema.messages.receiverId, userId)
-          )
-        ))
-        .orderBy(desc(schema.messages.createdAt))
-        .limit(1);
+      // For each user, get the latest message and unread count
+      const conversations = await Promise.all(userIds.map(async (otherUserId) => {
+        const lastMessage = await Message.findOne({
+          $or: [
+            { sender: userId, receiver: otherUserId },
+            { sender: otherUserId, receiver: userId }
+          ]
+        }).sort({ createdAt: -1 });
         
-      const lastMessage = lastMessages[0];
-      
-      if (!lastMessage) {
-        throw new Error(`No messages found between users ${userId} and ${chatUserId}`);
-      }
-      
-      // Get unread count
-      const unreadCountResult = await db.select({ count: sql<number>`count(*)` })
-        .from(schema.messages)
-        .where(and(
-          eq(schema.messages.senderId, chatUserId),
-          eq(schema.messages.receiverId, userId),
-          eq(schema.messages.read, false)
-        ));
+        const unreadCount = await Message.countDocuments({
+          sender: otherUserId,
+          receiver: userId,
+          read: false
+        });
         
-      const unreadCount = unreadCountResult[0]?.count || 0;
+        const user = await User.findById(otherUserId);
+        
+        return {
+          user: user?.toObject(),
+          lastMessage: lastMessage?.toObject(),
+          unreadCount
+        };
+      }));
       
-      return { user, lastMessage, unreadCount };
-    }));
-    
-    // Sort by last message time, newest first
-    return conversations.sort((a, b) => 
-      b.lastMessage.createdAt.getTime() - a.lastMessage.createdAt.getTime()
-    );
+      // Sort by latest message time
+      return conversations.sort((a, b) => {
+        const dateA = a.lastMessage?.createdAt || new Date(0);
+        const dateB = b.lastMessage?.createdAt || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+    } catch (error) {
+      console.error("Error getting conversations:", error);
+      return [];
+    }
   }
   
   // Search methods
-  async searchUsers(query: string): Promise<schema.User[]> {
-    return await db.select()
-      .from(schema.users)
-      .where(or(
-        sql`${schema.users.username} ILIKE ${`%${query}%`}`,
-        sql`${schema.users.displayName} ILIKE ${`%${query}%`}`
-      ))
-      .limit(20);
+  async searchUsers(query: string): Promise<any[]> {
+    try {
+      const users = await User.find({
+        $or: [
+          { username: { $regex: query, $options: 'i' } },
+          { displayName: { $regex: query, $options: 'i' } }
+        ]
+      }).limit(20);
+      
+      return users.map(user => user.toObject());
+    } catch (error) {
+      console.error("Error searching users:", error);
+      return [];
+    }
   }
   
-  async searchBlogs(query: string): Promise<(schema.Blog & { author: schema.User })[]> {
-    const blogs = await db.select()
-      .from(schema.blogs)
-      .where(or(
-        sql`${schema.blogs.title} ILIKE ${`%${query}%`}`,
-        sql`${schema.blogs.content} ILIKE ${`%${query}%`}`
-      ))
+  async searchBlogs(query: string): Promise<any[]> {
+    try {
+      const blogs = await Blog.find({
+        $or: [
+          { title: { $regex: query, $options: 'i' } },
+          { content: { $regex: query, $options: 'i' } }
+        ]
+      })
+      .populate('author')
       .limit(20);
       
-    // Fetch authors for each blog
-    const blogsWithAuthors = await Promise.all(blogs.map(async (blog) => {
-      const author = await this.getUser(blog.authorId);
-      return { ...blog, author: author! };
-    }));
-    
-    return blogsWithAuthors;
+      return blogs.map(blog => blog.toObject());
+    } catch (error) {
+      console.error("Error searching blogs:", error);
+      return [];
+    }
   }
   
   // Trending methods
-  async getTrendingBlogs(limit = 10): Promise<(schema.Blog & { author: schema.User, likeCount: number, commentCount: number })[]> {
-    // Get blogs with their like counts
-    const blogLikeCounts = await db.select({
-      blogId: schema.likes.blogId,
-      likeCount: sql<number>`count(*)`
-    })
-    .from(schema.likes)
-    .groupBy(schema.likes.blogId);
-    
-    // Get blogs with their comment counts
-    const blogCommentCounts = await db.select({
-      blogId: schema.comments.blogId,
-      commentCount: sql<number>`count(*)`
-    })
-    .from(schema.comments)
-    .groupBy(schema.comments.blogId);
-    
-    // Map of blogId to like count
-    const likeCountMap = new Map(blogLikeCounts.map(b => [b.blogId, b.likeCount]));
-    
-    // Map of blogId to comment count
-    const commentCountMap = new Map(blogCommentCounts.map(b => [b.blogId, b.commentCount]));
-    
-    // Get all blogs with authors
-    const allBlogs = await db.query.blogs.findMany({
-      with: { author: true },
-      orderBy: desc(schema.blogs.createdAt),
-      limit: 50 // Fetch more blogs than needed to ensure we have enough with engagement
-    });
-    
-    // Add engagement metrics to each blog
-    const blogsWithEngagement = allBlogs.map(blog => ({
-      ...blog,
-      likeCount: likeCountMap.get(blog.id) || 0,
-      commentCount: commentCountMap.get(blog.id) || 0,
-      totalEngagement: (likeCountMap.get(blog.id) || 0) + (commentCountMap.get(blog.id) || 0)
-    }));
-    
-    // Sort by total engagement and return the top 'limit' blogs
-    return blogsWithEngagement
-      .sort((a, b) => b.totalEngagement - a.totalEngagement)
-      .slice(0, limit);
+  async getTrendingBlogs(limit = 10): Promise<any[]> {
+    try {
+      // Get like counts for each blog
+      const likeAggregation = await Like.aggregate([
+        { $group: { _id: "$blog", count: { $sum: 1 } } }
+      ]);
+      
+      // Get comment counts for each blog
+      const commentAggregation = await Comment.aggregate([
+        { $group: { _id: "$blog", count: { $sum: 1 } } }
+      ]);
+      
+      // Create a map of blog IDs to like counts
+      const likeCounts = new Map();
+      likeAggregation.forEach(item => {
+        likeCounts.set(item._id.toString(), item.count);
+      });
+      
+      // Create a map of blog IDs to comment counts
+      const commentCounts = new Map();
+      commentAggregation.forEach(item => {
+        commentCounts.set(item._id.toString(), item.count);
+      });
+      
+      // Get all blogs
+      const blogs = await Blog.find()
+        .populate('author')
+        .sort({ createdAt: -1 })
+        .limit(100); // Get a pool of recent blogs
+      
+      // Add metrics to each blog
+      const blogsWithMetrics = blogs.map(blog => {
+        const blogObj = blog.toObject();
+        const blogId = blog._id.toString();
+        blogObj.likeCount = likeCounts.get(blogId) || 0;
+        blogObj.commentCount = commentCounts.get(blogId) || 0;
+        // Simple trending score: likes + comments * 2
+        blogObj.trendingScore = blogObj.likeCount + (blogObj.commentCount * 2);
+        return blogObj;
+      });
+      
+      // Sort by trending score and return top 'limit' blogs
+      return blogsWithMetrics
+        .sort((a, b) => b.trendingScore - a.trendingScore)
+        .slice(0, limit);
+    } catch (error) {
+      console.error("Error getting trending blogs:", error);
+      return [];
+    }
   }
 }
 
