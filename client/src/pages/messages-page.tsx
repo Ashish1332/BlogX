@@ -115,14 +115,22 @@ export default function MessagesPage() {
     mutationFn: async (content: string) => {
       if (!id) throw new Error("No recipient selected");
       
-      // First try to send via WebSocket for real-time delivery
+      // Try real-time delivery via WebSocket first, but don't send via API if successful
+      // Instead, let the server handle persistence when it receives the WebSocket message
       if (webSocketService.isConnected() && currentUser?._id) {
         const sent = webSocketService.sendDirectMessage(id, content);
         if (sent) {
-          console.log('Message sent via WebSocket');
-          // We still want to save the message through the API for persistence
-          const res = await apiRequest("POST", `/api/messages/${id}`, { content });
-          return await res.json();
+          console.log('Message sent via WebSocket only - server will persist');
+          // Return a temporary placeholder message object since the server will handle persistence
+          // This avoids the duplicate message issue
+          return {
+            _id: 'temp-' + Date.now(),
+            senderId: currentUser._id,
+            receiverId: id,
+            content: content,
+            createdAt: new Date().toISOString(),
+            read: false
+          };
         } else {
           console.log('WebSocket sending failed, falling back to API');
         }

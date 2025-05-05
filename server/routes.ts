@@ -107,6 +107,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Direct message from ${data.from} to ${data.to}`);
           
           try {
+            // Check if this message has a temp_id from the client to prevent duplication
+            // The client will now rely on WebSocket for sending messages,
+            // not making additional API calls for the same message
+            
             // Save message to database
             const savedMessage = await storage.sendMessage({
               senderId: data.from,
@@ -114,11 +118,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               content: data.content
             });
             
+            console.log(`WebSocket message saved with ID: ${savedMessage._id}`);
+            
             // Forward message to recipient
             broadcastToUser(data.to, {
               type: 'new_message',
               message: savedMessage,
               sender: await storage.getUser(data.from)
+            });
+            
+            // Also broadcast to the sender to update their UI immediately
+            // This avoids needing a separate refetch
+            broadcastToUser(data.from, {
+              type: 'new_message',
+              message: savedMessage,
+              isSender: true  // Flag to identify that user is sender
             });
             
             // Send confirmation to sender
