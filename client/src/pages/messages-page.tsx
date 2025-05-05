@@ -530,19 +530,19 @@ export default function MessagesPage() {
                   {messages && messages.map((msg: any) => (
                     <div 
                       key={msg._id} 
-                      className={`flex ${msg.senderId === currentUser?._id ? 'justify-end' : 'justify-start'}`}
+                      className={`flex w-full ${msg.senderId === currentUser?._id ? 'justify-end' : 'justify-start'}`}
                     >
                       <div 
                         className={`max-w-[70%] px-4 py-2 ${
                           msg.senderId === currentUser?._id 
-                            ? 'bg-primary text-white rounded-tl-lg rounded-tr-lg rounded-bl-lg' 
-                            : 'bg-secondary text-foreground rounded-tl-lg rounded-tr-lg rounded-br-lg'
+                            ? 'bg-primary text-white rounded-tl-lg rounded-tr-none rounded-bl-lg rounded-br-lg ml-auto' 
+                            : 'bg-secondary text-foreground rounded-tl-none rounded-tr-lg rounded-bl-lg rounded-br-lg mr-auto'
                         }`}
                       >
                         <p>{msg.content}</p>
                         <p className={`text-xs mt-1 ${
                           msg.senderId === currentUser?._id 
-                            ? 'text-white/70' 
+                            ? 'text-white/70 text-right' 
                             : 'text-muted-foreground'
                         }`}>
                           {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
