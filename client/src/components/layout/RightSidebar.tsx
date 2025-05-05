@@ -181,6 +181,9 @@ export default function RightSidebar() {
           <a href="#" className="hover:underline">More</a>
         </div>
         <div className="mt-2">© {new Date().getFullYear()} Blogr, Inc.</div>
+        <div className="mt-2 flex items-center gap-1 text-muted-foreground">
+          Made by Pranjal Sonowane <span className="text-red-500">♥</span>
+        </div>
       </div>
     </div>
   );
