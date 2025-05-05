@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Logo } from "@/components/ui/logo";
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -57,9 +58,7 @@ export default function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-3 mb-4">
-            <Link href="/">
-              <a className="text-2xl font-bold text-primary">BlogX</a>
-            </Link>
+            <Logo />
           </div>
           
           {/* Main Navigation */}
