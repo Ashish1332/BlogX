@@ -690,23 +690,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Follow Routes
   app.post("/api/users/:id/follow", isAuthenticated, async (req, res) => {
     try {
-      const followingId = parseInt(req.params.id);
+      // For MongoDB, use the string ID directly (don't parseInt)
+      const followingId = req.params.id;
+      
+      console.log("Follow request - Current user:", req.user?._id);
+      console.log("Follow request - User to follow:", followingId);
+      
       const userToFollow = await storage.getUser(followingId);
       
       if (!userToFollow) {
         return res.status(404).json({ message: "User not found" });
       }
       
-      if (followingId === req.user.id) {
+      // For MongoDB, compare string IDs or ObjectIDs
+      const currentUserId = req.user?._id?.toString();
+      if (followingId === currentUserId) {
         return res.status(400).json({ message: "Cannot follow yourself" });
       }
       
-      await storage.followUser(req.user.id, followingId);
+      await storage.followUser(currentUserId, followingId);
       
       // Create notification
       await storage.createNotification({
         userId: followingId,
-        actorId: req.user.id,
+        actorId: currentUserId,
         type: 'follow'
       });
       
@@ -730,14 +737,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.delete("/api/users/:id/follow", isAuthenticated, async (req, res) => {
     try {
-      const followingId = parseInt(req.params.id);
+      // For MongoDB, use the string ID directly (don't parseInt)
+      const followingId = req.params.id;
+      
+      console.log("Unfollow request - Current user:", req.user?._id);
+      console.log("Unfollow request - User to unfollow:", followingId);
+      
       const userToUnfollow = await storage.getUser(followingId);
       
       if (!userToUnfollow) {
         return res.status(404).json({ message: "User not found" });
       }
       
-      await storage.unfollowUser(req.user.id, followingId);
+      // For MongoDB, use the string _id
+      const currentUserId = req.user?._id?.toString();
+      await storage.unfollowUser(currentUserId, followingId);
       
       const followers = await storage.getFollowers(followingId);
       
