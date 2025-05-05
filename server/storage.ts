@@ -128,26 +128,53 @@ export class DatabaseStorage implements IStorage {
   
   async updateUser(id: string, userData: any): Promise<any | undefined> {
     try {
-      // If id is not a valid MongoDB ObjectId format, return undefined
-      // This prevents casting errors when id is undefined or invalid
-      if (!id || id === "-1" || id === "undefined" || id.length !== 24) {
-        console.error("Invalid user ID for update:", id);
+      // Log the incoming data
+      console.log("updateUser called with id:", id, "and userData:", userData);
+
+      // If id is not provided, return undefined
+      if (!id) {
+        console.error("updateUser: No id provided");
         return undefined;
       }
       
-      console.log("Updating user with ID:", id, "userData:", userData);
+      // Explicitly check for MongoDB ObjectID format
+      if (id === "-1" || id === "undefined" || id.length !== 24) {
+        console.error("updateUser: Invalid ObjectID format:", id);
+        return undefined;
+      }
       
+      // First, fetch the user to make sure they exist
+      const existingUser = await User.findById(id);
+      if (!existingUser) {
+        console.error("updateUser: No user found with ID:", id);
+        return undefined;
+      }
+      
+      console.log("updateUser: Found existing user:", existingUser);
+      
+      // Create a copy of userData with only the fields we want to update
+      const sanitizedUserData: any = {};
+      
+      if (userData.displayName !== undefined) sanitizedUserData.displayName = userData.displayName;
+      if (userData.bio !== undefined) sanitizedUserData.bio = userData.bio;
+      if (userData.profileImage !== undefined) sanitizedUserData.profileImage = userData.profileImage;
+      if (userData.coverImage !== undefined) sanitizedUserData.coverImage = userData.coverImage;
+      
+      console.log("updateUser: Sanitized userData:", sanitizedUserData);
+      
+      // Update the user
       const updatedUser = await User.findByIdAndUpdate(
         id,
-        { $set: userData },
+        { $set: sanitizedUserData },
         { new: true }
       );
       
       if (!updatedUser) {
-        console.error("No user found with ID:", id);
+        console.error("updateUser: Update failed for user with ID:", id);
         return undefined;
       }
       
+      console.log("updateUser: Update successful, returning:", updatedUser);
       return updatedUser.toObject();
     } catch (error) {
       console.error("Error updating user:", error);
