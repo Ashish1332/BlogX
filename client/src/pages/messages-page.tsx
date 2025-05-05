@@ -528,32 +528,28 @@ export default function MessagesPage() {
               ) : (
                 <div className="space-y-4">
                   {messages && messages.map((msg: any) => {
-                    // Debug log to console to help diagnose the issue
-                    console.log('Message:', {
-                      isSentByMe: String(msg.senderId) === String(currentUser?._id),
-                      msgSenderId: msg.senderId,
-                      currentUserId: currentUser?._id,
-                      msgContent: msg.content
-                    });
-                    
-                    // Explicitly convert IDs to strings for comparison
-                    const isCurrentUserSender = String(msg.senderId) === String(currentUser?._id);
+                    // Determine if current user is the sender
+                    // For MongoDB ObjectIds, need to compare string versions
+                    const msgSenderId = String(msg.senderId || "");
+                    const currentUserId = String(currentUser?._id || "");
+                    const isSentByCurrentUser = msgSenderId === currentUserId;
                     
                     return (
                       <div 
                         key={msg._id} 
-                        className={`flex w-full ${isCurrentUserSender ? 'justify-end' : 'justify-start'}`}
+                        className="flex w-full"
+                        style={{ justifyContent: isSentByCurrentUser ? 'flex-end' : 'flex-start' }}
                       >
                         <div 
                           className={`max-w-[70%] px-4 py-2 ${
-                            isCurrentUserSender
-                              ? 'bg-primary text-white rounded-tl-lg rounded-tr-none rounded-bl-lg rounded-br-lg ml-auto' 
-                              : 'bg-secondary text-foreground rounded-tl-none rounded-tr-lg rounded-bl-lg rounded-br-lg mr-auto'
+                            isSentByCurrentUser
+                              ? 'bg-primary text-white rounded-tl-lg rounded-tr-none rounded-bl-lg rounded-br-lg' 
+                              : 'bg-secondary text-foreground rounded-tl-none rounded-tr-lg rounded-bl-lg rounded-br-lg'
                           }`}
                         >
                           <p>{msg.content}</p>
                           <p className={`text-xs mt-1 ${
-                            isCurrentUserSender
+                            isSentByCurrentUser
                               ? 'text-white/70 text-right' 
                               : 'text-muted-foreground'
                           }`}>
