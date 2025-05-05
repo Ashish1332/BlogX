@@ -89,15 +89,31 @@ export default function ProfilePage() {
   // Follow/unfollow mutation
   const followMutation = useMutation({
     mutationFn: async () => {
-      if (profile?.isFollowing) {
-        const res = await apiRequest("DELETE", `/api/users/${userId}/follow`);
-        return await res.json();
-      } else {
-        const res = await apiRequest("POST", `/api/users/${userId}/follow`);
-        return await res.json();
+      console.log(`Making ${profile?.isFollowing ? 'unfollow' : 'follow'} request for user:`, userId);
+      
+      try {
+        if (profile?.isFollowing) {
+          console.log("Sending UNFOLLOW request to:", `/api/users/${userId}/follow`);
+          const res = await apiRequest("DELETE", `/api/users/${userId}/follow`);
+          const data = await res.json();
+          console.log("Unfollow response:", data);
+          return data;
+        } else {
+          console.log("Sending FOLLOW request to:", `/api/users/${userId}/follow`);
+          const res = await apiRequest("POST", `/api/users/${userId}/follow`);
+          const data = await res.json();
+          console.log("Follow response:", data);
+          return data;
+        }
+      } catch (error) {
+        console.error("Error in follow mutation:", error);
+        throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log(`Follow/unfollow successful! Invalidating query for user ${userId}`);
+      console.log("Response data:", data);
+      
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
       toast({
         title: profile?.isFollowing ? "Unfollowed" : "Followed",
@@ -107,6 +123,7 @@ export default function ProfilePage() {
       });
     },
     onError: (error) => {
+      console.error("Follow/unfollow mutation error:", error);
       toast({
         title: "Error",
         description: (error as Error).message,
@@ -176,6 +193,13 @@ export default function ProfilePage() {
       });
       return;
     }
+    
+    console.log("Follow button clicked. Current state:", {
+      profileId: userId,
+      isFollowing: profile?.isFollowing,
+      currentUser: currentUser?._id || currentUser?.id
+    });
+    
     followMutation.mutate();
   };
 
