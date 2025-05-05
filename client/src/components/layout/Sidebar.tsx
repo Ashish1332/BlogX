@@ -69,13 +69,15 @@ export default function Sidebar() {
                 <li key={item.path}>
                   <Link href={item.path}>
                     <a className={`flex items-center gap-4 p-3 rounded-full hover:bg-secondary text-xl font-medium ${location === item.path ? 'font-bold' : ''}`}>
-                      {item.icon}
+                      <div className="relative">
+                        {item.icon}
+                        {item.badge && (
+                          <span className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 bg-primary text-white h-5 w-5 flex items-center justify-center rounded-full text-xs">
+                            {item.badge > 99 ? "99+" : item.badge}
+                          </span>
+                        )}
+                      </div>
                       <span>{item.label}</span>
-                      {item.badge && (
-                        <span className="absolute notification-indicator bg-primary text-white h-5 w-5 flex items-center justify-center rounded-full text-xs">
-                          {item.badge > 99 ? "99+" : item.badge}
-                        </span>
-                      )}
                     </a>
                   </Link>
                 </li>

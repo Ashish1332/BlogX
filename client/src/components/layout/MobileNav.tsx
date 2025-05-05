@@ -33,12 +33,14 @@ export default function MobileNav() {
         {navItems.map((item) => (
           <Link key={item.path} href={item.path}>
             <a className={`flex flex-col items-center justify-center relative ${location === item.path ? 'text-primary' : 'text-muted-foreground'}`}>
-              {item.icon}
-              {item.badge && (
-                <span className="absolute notification-indicator bg-primary text-white h-5 w-5 flex items-center justify-center rounded-full text-xs">
-                  {item.badge > 99 ? "99+" : item.badge}
-                </span>
-              )}
+              <div className="relative">
+                {item.icon}
+                {item.badge && (
+                  <span className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 bg-primary text-white h-5 w-5 flex items-center justify-center rounded-full text-xs">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
+              </div>
             </a>
           </Link>
         ))}
