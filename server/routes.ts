@@ -954,50 +954,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log(`Created uploads directory at ${uploadsDir}`);
+  }
+  
   // Serve uploads directory for uploaded images
-  app.use('/uploads', express.static('uploads'));
-
-  // Add file upload endpoints for profile and cover images
-  app.post('/api/upload/profile-image', isAuthenticated, upload.single('profileImage'), async (req, res) => {
+  app.use('/uploads', express.static(uploadsDir));
+  
+  // Simple test upload endpoint - no authentication required
+  app.post('/api/test-upload', upload.single('testFile'), (req, res) => {
+    console.log("TEST UPLOAD ENDPOINT CALLED");
     try {
       if (!req.file) {
-        console.error("No file uploaded in profile image request");
-        return res.status(400).json({ message: 'No file uploaded' });
+        console.error("No file uploaded in test request");
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
       }
 
-      // Create relative URL to uploaded file
-      const fileUrl = `/uploads/${req.file.filename}`;
-      
-      console.log("Profile image upload - File details:", {
+      // Log file details 
+      console.log("Test upload - File details:", {
         fieldname: req.file.fieldname,
         originalname: req.file.originalname,
+        encoding: req.file.encoding,
         mimetype: req.file.mimetype,
+        destination: req.file.destination,
         filename: req.file.filename,
         path: req.file.path,
         size: req.file.size
       });
+
+      // Verify file exists on disk
+      const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
+      const fileExists = fs.existsSync(fullPath);
+      console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
       
-      // Ensure file exists on disk
-      try {
-        const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
-        const fileExists = fs.existsSync(fullPath);
-        console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
-        
-        // If file somehow doesn't exist
-        if (!fileExists) {
-          return res.status(500).json({ message: "File upload failed - file not found on disk" });
-        }
-      } catch (fileCheckError) {
-        console.error("Error checking uploaded file:", fileCheckError);
+      if (!fileExists) {
+        return res.status(500).json({ 
+          success: false, 
+          message: 'File upload failed - file not found on disk' 
+        });
+      }
+
+      // Return success with file URL
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.status(200).json({ 
+        success: true,
+        message: 'File uploaded successfully',
+        fileUrl: fileUrl,
+        fullPath: fullPath,
+        filename: req.file.filename
+      });
+    } catch (error) {
+      console.error('Error in test upload:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to upload file', 
+        error: error.message 
+      });
+    }
+  });
+
+  // Add file upload endpoints for profile and cover images
+  app.post('/api/upload/profile-image', isAuthenticated, upload.single('profileImage'), async (req, res) => {
+    console.log("PROFILE IMAGE UPLOAD ENDPOINT CALLED");
+    console.log("Request user:", req.user);
+    console.log("Request file:", req.file ? "File present" : "No file");
+    console.log("Request body:", req.body);
+    
+    try {
+      if (!req.file) {
+        console.error("No file uploaded in profile image request");
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+
+      // Log file details 
+      console.log("Profile image upload - File details:", {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        encoding: req.file.encoding,
+        mimetype: req.file.mimetype,
+        destination: req.file.destination,
+        filename: req.file.filename,
+        path: req.file.path,
+        size: req.file.size
+      });
+
+      // Create relative URL to uploaded file
+      const fileUrl = `/uploads/${req.file.filename}`;
+      
+      // Verify file exists on disk
+      const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
+      const fileExists = fs.existsSync(fullPath);
+      console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
+      
+      if (!fileExists) {
+        return res.status(500).json({ 
+          success: false, 
+          message: 'File upload failed - file not found on disk' 
+        });
       }
       
-      // Use MongoDB _id instead of id property
-      const userId = req.user._id ? req.user._id.toString() : undefined;
+      // Get user ID from the authenticated user
+      const userId = req.user?._id?.toString();
       console.log("Profile image upload - User ID:", userId);
       
       if (!userId) {
         console.error("No userId found in profile image upload request");
-        return res.status(401).json({ message: "Authentication required" });
+        return res.status(401).json({ 
+          success: false, 
+          message: "Authentication required" 
+        });
       }
 
       // Update the user's profile with the new image URL
@@ -1008,7 +1076,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!updatedUser) {
         console.error("Failed to update user with profile image URL");
-        return res.status(500).json({ message: "Failed to update user profile" });
+        return res.status(500).json({ 
+          success: false, 
+          message: "Failed to update user profile" 
+        });
       }
       
       console.log("Profile image successfully updated for user:", userId);
@@ -1016,54 +1087,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return the URL to the uploaded file
       res.json({ 
         success: true, 
-        fileUrl 
+        message: "Profile image uploaded successfully",
+        fileUrl: fileUrl 
       });
     } catch (error) {
       console.error('Error uploading profile image:', error);
-      res.status(500).json({ message: 'Failed to upload profile image' });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to upload profile image',
+        error: error.message 
+      });
     }
   });
 
   app.post('/api/upload/cover-image', isAuthenticated, upload.single('coverImage'), async (req, res) => {
+    console.log("COVER IMAGE UPLOAD ENDPOINT CALLED");
+    console.log("Request user:", req.user);
+    console.log("Request file:", req.file ? "File present" : "No file");
+    console.log("Request body:", req.body);
+    
     try {
       if (!req.file) {
         console.error("No file uploaded in cover image request");
-        return res.status(400).json({ message: 'No file uploaded' });
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
       }
 
-      // Create relative URL to uploaded file
-      const fileUrl = `/uploads/${req.file.filename}`;
-      
+      // Log file details
       console.log("Cover image upload - File details:", {
         fieldname: req.file.fieldname,
         originalname: req.file.originalname,
+        encoding: req.file.encoding,
         mimetype: req.file.mimetype,
+        destination: req.file.destination,
         filename: req.file.filename,
         path: req.file.path,
         size: req.file.size
       });
       
-      // Ensure file exists on disk
-      try {
-        const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
-        const fileExists = fs.existsSync(fullPath);
-        console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
-        
-        // If file somehow doesn't exist
-        if (!fileExists) {
-          return res.status(500).json({ message: "File upload failed - file not found on disk" });
-        }
-      } catch (fileCheckError) {
-        console.error("Error checking uploaded file:", fileCheckError);
+      // Create relative URL to uploaded file
+      const fileUrl = `/uploads/${req.file.filename}`;
+      
+      // Verify file exists on disk
+      const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
+      const fileExists = fs.existsSync(fullPath);
+      console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
+      
+      if (!fileExists) {
+        return res.status(500).json({ 
+          success: false, 
+          message: 'File upload failed - file not found on disk' 
+        });
       }
       
-      // Use MongoDB _id instead of id property
-      const userId = req.user._id ? req.user._id.toString() : undefined;
+      // Get user ID from the authenticated user
+      const userId = req.user?._id?.toString();
       console.log("Cover image upload - User ID:", userId);
       
       if (!userId) {
         console.error("No userId found in cover image upload request");
-        return res.status(401).json({ message: "Authentication required" });
+        return res.status(401).json({ 
+          success: false, 
+          message: "Authentication required" 
+        });
       }
 
       // Update the user's profile with the new cover image URL
@@ -1074,7 +1159,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!updatedUser) {
         console.error("Failed to update user with cover image URL");
-        return res.status(500).json({ message: "Failed to update user profile" });
+        return res.status(500).json({ 
+          success: false, 
+          message: "Failed to update user profile" 
+        });
       }
       
       console.log("Cover image successfully updated for user:", userId);
@@ -1082,11 +1170,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return the URL to the uploaded file
       res.json({ 
         success: true, 
-        fileUrl 
+        message: "Cover image uploaded successfully",
+        fileUrl: fileUrl 
       });
     } catch (error) {
       console.error('Error uploading cover image:', error);
-      res.status(500).json({ message: 'Failed to upload cover image' });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to upload cover image',
+        error: error.message 
+      });
     }
   });
   
