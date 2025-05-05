@@ -1,0 +1,313 @@
+import { useState, useEffect, useRef } from "react";
+import { useParams, useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import MainLayout from "@/components/layout/MainLayout";
+import { Link } from "wouter";
+import { formatDistanceToNow } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Send, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+
+export default function MessagesPage() {
+  const { id } = useParams();
+  const [_, navigate] = useLocation();
+  const { user: currentUser } = useAuth();
+  const { toast } = useToast();
+  const [message, setMessage] = useState("");
+  const [isClient, setIsClient] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Fetch conversations
+  const { 
+    data: conversations, 
+    isLoading: isConversationsLoading,
+    isError: isConversationsError
+  } = useQuery({
+    queryKey: ["/api/messages/conversations"],
+    queryFn: async () => {
+      const res = await fetch("/api/messages/conversations");
+      if (!res.ok) throw new Error("Failed to fetch conversations");
+      return res.json();
+    },
+  });
+
+  // Fetch messages for selected conversation
+  const { 
+    data: messages,
+    isLoading: isMessagesLoading,
+    isError: isMessagesError,
+    refetch: refetchMessages
+  } = useQuery({
+    queryKey: [`/api/messages/${id}`],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await fetch(`/api/messages/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch messages");
+      return res.json();
+    },
+    enabled: !!id,
+    refetchInterval: 5000, // Poll for new messages every 5 seconds
+  });
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!id) throw new Error("No recipient selected");
+      const res = await apiRequest("POST", `/api/messages/${id}`, { content });
+      return await res.json();
+    },
+    onSuccess: () => {
+      setMessage("");
+      refetchMessages();
+      // Also update conversations to show latest message
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to send message",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+    sendMessageMutation.mutate(message);
+  };
+
+  // Don't render anything during SSR to avoid hydration mismatch with date formatting
+  if (!isClient) {
+    return (
+      <MainLayout pageTitle="Messages">
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout pageTitle="Messages">
+      <div className="flex h-[calc(100vh-16rem)]">
+        {/* Conversations List */}
+        <div className={`w-80 border-r border-border ${id ? 'hidden md:block' : 'block'}`}>
+          <div className="p-4 border-b border-border">
+            <h2 className="font-bold text-lg">Messages</h2>
+          </div>
+
+          {isConversationsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : isConversationsError ? (
+            <div className="p-4 text-center">
+              <p className="text-destructive">Failed to load conversations</p>
+            </div>
+          ) : conversations && conversations.length === 0 ? (
+            <div className="p-4 text-center">
+              <p className="text-muted-foreground">No conversations yet</p>
+              <p className="text-sm text-muted-foreground">
+                Start a new conversation by visiting a user's profile and sending them a message.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border overflow-y-auto max-h-full">
+              {conversations && conversations.map((conversation: any) => (
+                <Link key={conversation.user.id} href={`/messages/${conversation.user.id}`}>
+                  <a className={`block p-4 hover:bg-secondary/50 transition ${id === conversation.user.id.toString() ? 'bg-secondary' : ''}`}>
+                    <div className="flex gap-3">
+                      <div className="relative">
+                        <img 
+                          src={conversation.user.profileImage || "https://via.placeholder.com/40"} 
+                          alt={conversation.user.displayName} 
+                          className="w-12 h-12 rounded-full object-cover" 
+                        />
+                        {conversation.unreadCount > 0 && (
+                          <span className="absolute top-0 right-0 h-4 w-4 bg-primary rounded-full" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-1">
+                          <h3 className="font-semibold truncate">{conversation.user.displayName}</h3>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(conversation.lastMessage.createdAt), { addSuffix: false })}
+                          </span>
+                        </div>
+                        <p className={`text-sm truncate ${!conversation.lastMessage.read && conversation.lastMessage.senderId === conversation.user.id ? 'font-semibold' : 'text-muted-foreground'}`}>
+                          {conversation.lastMessage.senderId === currentUser?.id ? 'You: ' : ''}
+                          {conversation.lastMessage.content}
+                        </p>
+                      </div>
+                    </div>
+                  </a>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Message Thread or Empty State */}
+        {id ? (
+          <div className={`flex-1 flex flex-col ${id ? 'block' : 'hidden md:block'}`}>
+            {/* Header with user info */}
+            {conversations && (
+              <div className="p-4 border-b border-border flex items-center gap-3">
+                {id && conversations && (
+                  <>
+                    <Link href={`/profile/${id}`}>
+                      <a>
+                        <img 
+                          src={conversations.find((c: any) => c.user.id.toString() === id)?.user.profileImage || "https://via.placeholder.com/40"} 
+                          alt={conversations.find((c: any) => c.user.id.toString() === id)?.user.displayName} 
+                          className="w-10 h-10 rounded-full object-cover" 
+                        />
+                      </a>
+                    </Link>
+                    <div>
+                      <Link href={`/profile/${id}`}>
+                        <a className="font-semibold hover:underline">
+                          {conversations.find((c: any) => c.user.id.toString() === id)?.user.displayName}
+                        </a>
+                      </Link>
+                      <p className="text-xs text-muted-foreground">
+                        @{conversations.find((c: any) => c.user.id.toString() === id)?.user.username}
+                      </p>
+                    </div>
+                  </>
+                )}
+                <button 
+                  onClick={() => navigate("/messages")}
+                  className="md:hidden ml-auto text-muted-foreground"
+                >
+                  Back
+                </button>
+              </div>
+            )}
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {isMessagesLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : isMessagesError ? (
+                <div className="p-4 text-center">
+                  <p className="text-destructive">Failed to load messages</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => refetchMessages()}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              ) : messages && messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center">
+                  <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No messages yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    Send a message to start the conversation.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages && messages.map((msg: any) => (
+                    <div 
+                      key={msg.id} 
+                      className={`flex ${msg.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div 
+                        className={`max-w-[70%] px-4 py-2 rounded-lg ${
+                          msg.senderId === currentUser?.id 
+                            ? 'bg-primary text-white' 
+                            : 'bg-secondary text-foreground'
+                        }`}
+                      >
+                        <p>{msg.content}</p>
+                        <p className={`text-xs mt-1 ${
+                          msg.senderId === currentUser?.id 
+                            ? 'text-white/70' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-border">
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  type="submit" 
+                  size="icon"
+                  disabled={!message.trim() || sendMessageMutation.isPending}
+                >
+                  {sendMessageMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </form>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 hidden md:flex flex-col items-center justify-center">
+            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Your Messages</h3>
+            <p className="text-muted-foreground text-center max-w-md">
+              Select a conversation to read and send messages, or start a new conversation by visiting a user's profile.
+            </p>
+          </div>
+        )}
+      </div>
+    </MainLayout>
+  );
+}
+
+function MessageSquare(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
