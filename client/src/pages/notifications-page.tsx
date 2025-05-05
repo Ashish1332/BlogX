@@ -53,13 +53,16 @@ export default function NotificationsPage() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log("Marking notification as read, ID:", id);
       await apiRequest("POST", `/api/notifications/${id}/read`);
     },
     onSuccess: () => {
+      console.log("Successfully marked notification as read");
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
     },
     onError: (error) => {
+      console.error("Error marking notification as read:", error);
       toast({
         title: "Error",
         description: (error as Error).message,

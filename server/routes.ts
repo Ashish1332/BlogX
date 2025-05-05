@@ -711,20 +711,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.followUser(currentUserId, followingId);
       
       // Create notification
-      await storage.createNotification({
-        userId: followingId,
-        actorId: currentUserId,
-        type: 'follow'
+      console.log('Creating follow notification:', { 
+        userId: followingId, 
+        actorId: currentUserId, 
+        type: 'follow' 
       });
       
-      // Broadcast notification to followed user
-      broadcastToUser(followingId, {
-        type: 'notification',
-        notification: {
-          type: 'follow',
-          actor: req.user
-        }
-      });
+      try {
+        const notification = await storage.createNotification({
+          userId: followingId,
+          actorId: currentUserId,
+          type: 'follow'
+        });
+        
+        console.log('Created notification:', notification);
+        
+        // Broadcast notification to followed user
+        console.log('Broadcasting to user:', followingId);
+        broadcastToUser(followingId, {
+          type: 'notification',
+          notification: {
+            type: 'follow',
+            actor: req.user
+          }
+        });
+      } catch (err) {
+        console.error('Error creating follow notification:', err);
+      }
       
       const followers = await storage.getFollowers(followingId);
       
@@ -926,7 +939,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
       
-      const notifications = await storage.getNotifications(req.user.id, limit, offset);
+      console.log("Fetching notifications for user:", req.user?._id?.toString());
+      
+      // For MongoDB, use the _id property
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const notifications = await storage.getNotifications(userId, limit, offset);
+      console.log("Found notifications:", notifications?.length || 0);
       
       res.json(notifications);
     } catch (error) {
@@ -937,7 +959,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/notifications/unread/count", isAuthenticated, async (req, res) => {
     try {
-      const count = await storage.getUnreadNotificationCount(req.user.id);
+      // For MongoDB, use the _id property
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      console.log("Fetching unread notification count for user:", userId);
+      const count = await storage.getUnreadNotificationCount(userId);
+      console.log("Unread notification count:", count);
       
       res.json({ count });
     } catch (error) {
@@ -948,11 +978,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
     try {
-      const notificationId = parseInt(req.params.id);
+      // For MongoDB, use the ID directly (no parseInt)
+      const notificationId = req.params.id;
+      console.log("Marking notification as read:", notificationId);
       
-      await storage.markNotificationAsRead(notificationId);
+      const result = await storage.markNotificationAsRead(notificationId);
+      console.log("Mark notification as read result:", result);
       
-      res.json({ success: true });
+      res.json({ success: result });
     } catch (error) {
       console.error("Error marking notification as read:", error);
       res.status(500).json({ message: "Failed to mark notification as read" });
@@ -961,9 +994,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/notifications/read-all", isAuthenticated, async (req, res) => {
     try {
-      await storage.markAllNotificationsAsRead(req.user.id);
+      // For MongoDB, use the _id property
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
-      res.json({ success: true });
+      console.log("Marking all notifications as read for user:", userId);
+      const result = await storage.markAllNotificationsAsRead(userId);
+      console.log("Mark all notifications as read result:", result);
+      
+      res.json({ success: result });
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
       res.status(500).json({ message: "Failed to mark all notifications as read" });
