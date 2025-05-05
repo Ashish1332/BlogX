@@ -1100,7 +1100,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message Routes
   app.get("/api/messages/conversations", isAuthenticated, async (req, res) => {
     try {
-      const conversations = await storage.getConversations(req.user.id);
+      // For MongoDB, use the _id property as a string
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const conversations = await storage.getConversations(userId);
       
       res.json(conversations);
     } catch (error) {
@@ -1111,19 +1117,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/messages/:userId", isAuthenticated, async (req, res) => {
     try {
-      const otherUserId = parseInt(req.params.userId);
+      // For MongoDB, use the string ID directly
+      const otherUserId = req.params.userId;
       const otherUser = await storage.getUser(otherUserId);
       
       if (!otherUser) {
         return res.status(404).json({ message: "User not found" });
       }
       
-      const messages = await storage.getMessages(req.user.id, otherUserId);
+      // For MongoDB, use the _id property as a string
+      const currentUserId = req.user?._id?.toString();
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const messages = await storage.getMessages(currentUserId, otherUserId);
       
       // Mark messages from other user as read
       for (const message of messages) {
         if (message.senderId === otherUserId && !message.read) {
-          await storage.markMessageAsRead(message.id);
+          await storage.markMessageAsRead(message._id.toString());
         }
       }
       
@@ -1136,7 +1149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/messages/:userId", isAuthenticated, async (req, res) => {
     try {
-      const receiverId = parseInt(req.params.userId);
+      // For MongoDB, use the string ID directly
+      const receiverId = req.params.userId;
       const receiver = await storage.getUser(receiverId);
       
       if (!receiver) {
@@ -1145,8 +1159,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertMessageSchema.parse(req.body);
       
+      // For MongoDB, use the _id property as a string
+      const senderId = req.user?._id?.toString();
+      if (!senderId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const message = await storage.sendMessage({
-        senderId: req.user.id,
+        senderId,
         receiverId,
         content: validatedData.content
       });

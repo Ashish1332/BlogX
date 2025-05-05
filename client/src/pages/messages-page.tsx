@@ -315,8 +315,8 @@ export default function MessagesPage() {
           ) : (
             <div className="divide-y divide-border overflow-y-auto max-h-full">
               {conversations && conversations.map((conversation: any) => (
-                <Link key={conversation.user.id} href={`/messages/${conversation.user.id}`}>
-                  <a className={`block p-4 hover:bg-secondary/50 transition ${id === conversation.user.id.toString() ? 'bg-secondary' : ''}`}>
+                <Link key={conversation.user._id} href={`/messages/${conversation.user._id}`}>
+                  <a className={`block p-4 hover:bg-secondary/50 transition ${id === conversation.user._id.toString() ? 'bg-secondary' : ''}`}>
                     <div className="flex gap-3">
                       <div className="relative">
                         <img 
@@ -335,8 +335,8 @@ export default function MessagesPage() {
                             {formatDistanceToNow(new Date(conversation.lastMessage.createdAt), { addSuffix: false })}
                           </span>
                         </div>
-                        <p className={`text-sm truncate ${!conversation.lastMessage.read && conversation.lastMessage.senderId === conversation.user.id ? 'font-semibold' : 'text-muted-foreground'}`}>
-                          {conversation.lastMessage.senderId === currentUser?.id ? 'You: ' : ''}
+                        <p className={`text-sm truncate ${!conversation.lastMessage.read && conversation.lastMessage.senderId === conversation.user._id ? 'font-semibold' : 'text-muted-foreground'}`}>
+                          {conversation.lastMessage.senderId === currentUser?._id ? 'You: ' : ''}
                           {conversation.lastMessage.content}
                         </p>
                       </div>
@@ -359,8 +359,8 @@ export default function MessagesPage() {
                     <Link href={`/profile/${id}`}>
                       <a>
                         <img 
-                          src={conversations.find((c: any) => c.user.id.toString() === id)?.user.profileImage || "https://via.placeholder.com/40"} 
-                          alt={conversations.find((c: any) => c.user.id.toString() === id)?.user.displayName} 
+                          src={conversations.find((c: any) => c.user._id.toString() === id)?.user.profileImage || "https://via.placeholder.com/40"} 
+                          alt={conversations.find((c: any) => c.user._id.toString() === id)?.user.displayName} 
                           className="w-10 h-10 rounded-full object-cover" 
                         />
                       </a>
@@ -368,11 +368,11 @@ export default function MessagesPage() {
                     <div>
                       <Link href={`/profile/${id}`}>
                         <a className="font-semibold hover:underline">
-                          {conversations.find((c: any) => c.user.id.toString() === id)?.user.displayName}
+                          {conversations.find((c: any) => c.user._id.toString() === id)?.user.displayName}
                         </a>
                       </Link>
                       <p className="text-xs text-muted-foreground">
-                        @{conversations.find((c: any) => c.user.id.toString() === id)?.user.username}
+                        @{conversations.find((c: any) => c.user._id.toString() === id)?.user.username}
                       </p>
                     </div>
                   </>
