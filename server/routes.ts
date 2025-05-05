@@ -629,7 +629,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { displayName, bio, profileImage, coverImage } = req.body;
       
-      const updatedUser = await storage.updateUser(req.user.id, {
+      // Use MongoDB _id instead of id property
+      const userId = req.user._id ? req.user._id.toString() : undefined;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, {
         displayName,
         bio,
         profileImage,
@@ -954,8 +961,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
 
+      // Use MongoDB _id instead of id property
+      const userId = req.user._id ? req.user._id.toString() : undefined;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       // Update the user's profile with the new image URL
-      await storage.updateUser(req.user.id || req.user._id, {
+      await storage.updateUser(userId, {
         profileImage: fileUrl
       });
 
@@ -979,8 +993,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
 
+      // Use MongoDB _id instead of id property
+      const userId = req.user._id ? req.user._id.toString() : undefined;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       // Update the user's profile with the new cover image URL
-      await storage.updateUser(req.user.id || req.user._id, {
+      await storage.updateUser(userId, {
         coverImage: fileUrl
       });
 
