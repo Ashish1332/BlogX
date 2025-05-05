@@ -54,7 +54,7 @@ export default function ExplorePage() {
     }
   };
 
-  const handleDeleteBlog = (blogId: number) => {
+  const handleDeleteBlog = (blogId: string) => {
     if (activeTab === "trending") {
       refetchTrending();
     } else if (activeTab === "search") {
@@ -120,7 +120,7 @@ export default function ExplorePage() {
             <div className="divide-y divide-border">
               {trendingBlogs && trendingBlogs.map((blog: any) => (
                 <BlogCard 
-                  key={blog.id} 
+                  key={blog._id} 
                   blog={blog} 
                   onDelete={handleDeleteBlog}
                 />
@@ -159,18 +159,24 @@ export default function ExplorePage() {
                   <h2 className="text-lg font-bold mb-4">People</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {searchResults.users.map((user: User) => (
-                      <Link key={user.id} href={`/profile/${user.id}`}>
-                        <a className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/50 transition">
-                          <img 
-                            src={user.profileImage || "https://via.placeholder.com/40"} 
-                            alt={user.displayName} 
-                            className="w-12 h-12 rounded-full object-cover" 
-                          />
+                      <Link key={user._id} href={`/profile/${user._id}`}>
+                        <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/50 transition cursor-pointer">
+                          {user.profileImage ? (
+                            <img 
+                              src={user.profileImage} 
+                              alt={user.displayName} 
+                              className="w-12 h-12 rounded-full object-cover" 
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold">
+                              {user.displayName?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )}
                           <div>
                             <h3 className="font-semibold">{user.displayName}</h3>
                             <p className="text-sm text-muted-foreground">@{user.username}</p>
                           </div>
-                        </a>
+                        </div>
                       </Link>
                     ))}
                   </div>
@@ -185,7 +191,7 @@ export default function ExplorePage() {
                   </div>
                   {searchResults.blogs.map((blog: any) => (
                     <BlogCard 
-                      key={blog.id} 
+                      key={blog._id} 
                       blog={blog} 
                       onDelete={handleDeleteBlog}
                     />
