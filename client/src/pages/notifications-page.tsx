@@ -52,7 +52,7 @@ export default function NotificationsPage() {
   });
 
   const markAsReadMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiRequest("POST", `/api/notifications/${id}/read`);
     },
     onSuccess: () => {
@@ -72,7 +72,7 @@ export default function NotificationsPage() {
     markAllAsReadMutation.mutate();
   };
 
-  const handleNotificationClick = (id: number, read: boolean) => {
+  const handleNotificationClick = (id: string, read: boolean) => {
     if (!read) {
       markAsReadMutation.mutate(id);
     }
@@ -92,15 +92,19 @@ export default function NotificationsPage() {
   };
 
   const renderNotificationText = (notification: any) => {
+    // Get the actor ID, preferring _id (MongoDB) over id (legacy)
+    const actorId = notification.actor?._id || notification.actor?.id;
+    const blogId = notification.blog?._id || notification.blog?.id;
+    
     switch (notification.type) {
       case 'like':
         return (
           <>
-            <Link href={`/profile/${notification.actor?.id}`}>
+            <Link href={`/profile/${actorId}`}>
               <a className="font-semibold hover:underline">{notification.actor?.displayName}</a>
             </Link>
             {" liked your "}
-            <Link href={`/blog/${notification.blog?.id}`}>
+            <Link href={`/blog/${blogId}`}>
               <a className="hover:underline">blog</a>
             </Link>
           </>
@@ -108,11 +112,11 @@ export default function NotificationsPage() {
       case 'comment':
         return (
           <>
-            <Link href={`/profile/${notification.actor?.id}`}>
+            <Link href={`/profile/${actorId}`}>
               <a className="font-semibold hover:underline">{notification.actor?.displayName}</a>
             </Link>
             {" commented on your "}
-            <Link href={`/blog/${notification.blog?.id}`}>
+            <Link href={`/blog/${blogId}`}>
               <a className="hover:underline">blog</a>
             </Link>
           </>
@@ -120,10 +124,19 @@ export default function NotificationsPage() {
       case 'follow':
         return (
           <>
-            <Link href={`/profile/${notification.actor?.id}`}>
+            <Link href={`/profile/${actorId}`}>
               <a className="font-semibold hover:underline">{notification.actor?.displayName}</a>
             </Link>
             {" followed you"}
+            <button 
+              className="ml-2 px-2 py-1 bg-primary text-white rounded-full text-xs hover:bg-primary/90"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent the notification click handler
+                window.location.href = `/profile/${actorId}`;
+              }}
+            >
+              View Profile
+            </button>
           </>
         );
       default:
@@ -197,27 +210,31 @@ export default function NotificationsPage() {
 
       {/* Notifications list */}
       <div className="divide-y divide-border">
-        {notifications && notifications.map((notification: any) => (
-          <div 
-            key={notification.id} 
-            className={`p-4 hover:bg-secondary/50 transition ${!notification.read ? 'bg-primary/5' : ''}`}
-            onClick={() => handleNotificationClick(notification.id, notification.read)}
-          >
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-full bg-secondary">
-                {renderNotificationIcon(notification.type)}
-              </div>
-              <div>
-                <p className="mb-1">
-                  {renderNotificationText(notification)}
-                </p>
-                <p className="text-muted-foreground text-sm">
-                  {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                </p>
+        {notifications && notifications.map((notification: any) => {
+          // Get the notification ID, preferring _id (MongoDB) over id (legacy)
+          const notificationId = notification._id || notification.id;
+          return (
+            <div 
+              key={notificationId} 
+              className={`p-4 hover:bg-secondary/50 transition ${!notification.read ? 'bg-primary/5' : ''}`}
+              onClick={() => handleNotificationClick(notificationId, notification.read)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-full bg-secondary">
+                  {renderNotificationIcon(notification.type)}
+                </div>
+                <div>
+                  <p className="mb-1">
+                    {renderNotificationText(notification)}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </MainLayout>
   );
