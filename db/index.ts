@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 import * as models from './models';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 if (!process.env.MONGODB_URI) {
   throw new Error(
