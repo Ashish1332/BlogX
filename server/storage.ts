@@ -91,6 +91,12 @@ export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: string): Promise<any | undefined> {
     try {
+      // If id is not a valid MongoDB ObjectId format, return undefined
+      // This prevents casting errors when id is undefined or invalid
+      if (!id || id === "-1" || id === "undefined" || id.length !== 24) {
+        return undefined;
+      }
+      
       const user = await User.findById(id);
       return user?.toObject();
     } catch (error) {
@@ -193,6 +199,12 @@ export class DatabaseStorage implements IStorage {
   
   async getBlog(id: string): Promise<any | undefined> {
     try {
+      // If id is not a valid MongoDB ObjectId format, return undefined
+      // This prevents casting errors when id is undefined or invalid
+      if (!id || id === "-1" || id === "undefined" || id.length !== 24) {
+        return undefined;
+      }
+      
       const blog = await Blog.findById(id).populate('author');
       return blog?.toObject();
     } catch (error) {
