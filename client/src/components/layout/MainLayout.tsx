@@ -21,7 +21,7 @@ export default function MainLayout({
     <div className="flex min-h-screen">
       {/* Sidebar - hidden on mobile */}
       <Sidebar />
-      
+
       {/* Main Content */}
       <main className="flex-1 min-w-0 border-x border-border">
         {/* Header */}
@@ -40,14 +40,17 @@ export default function MainLayout({
             </div>
           </div>
         </header>
-        
+
         {/* Content */}
         {children}
+        <footer className="p-4 text-center text-sm">
+          © 2025 Blogr, Inc. • Made by Pranjal Sonowane ❤️
+        </footer>
       </main>
-      
+
       {/* Right Sidebar - hidden on mobile */}
       {showRightSidebar && !isMobile && <RightSidebar />}
-      
+
       {/* Mobile Bottom Navigation - only visible on mobile */}
       {isMobile && <MobileNav />}
     </div>
