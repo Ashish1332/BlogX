@@ -409,14 +409,15 @@ export default function MessagesPage() {
               </Button>
             </div>
           ) : (
-            <div className="divide-y divide-border overflow-y-auto max-h-full">
+            <div className="divide-y divide-border overflow-y-auto max-h-full messages-scrollbar">
               {conversations.map((conversation: any) => (
                 <div key={conversation.user._id} className="relative group">
-                  <div className="absolute right-3 top-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-3 top-7 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
+                            className="bg-gray-700 hover:bg-red-600 text-white p-1 rounded-full transition-colors duration-200"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -426,7 +427,8 @@ export default function MessagesPage() {
                                   method: 'DELETE',
                                   headers: {
                                     'Content-Type': 'application/json'
-                                  }
+                                  },
+                                  credentials: 'include' // Add credentials for authentication
                                 })
                                 .then(response => {
                                   if (response.ok) {
@@ -461,7 +463,6 @@ export default function MessagesPage() {
                                 });
                               }
                             }}
-                            className="bg-gray-700 hover:bg-red-600 text-white p-1 rounded-full transition-colors duration-200"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -595,7 +596,7 @@ export default function MessagesPage() {
               </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 messages-scrollbar">
               {isMessagesLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -688,7 +689,8 @@ export default function MessagesPage() {
                                             method: 'DELETE',
                                             headers: {
                                               'Content-Type': 'application/json'
-                                            }
+                                            },
+                                            credentials: 'include' // Add credentials for authentication
                                           })
                                           .then(response => {
                                             if (response.ok) {
