@@ -2,7 +2,7 @@ import express, { type Express, type Request } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { insertBlogSchema, insertCommentSchema, insertMessageSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";

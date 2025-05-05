@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Search, UserPlus, MessageSquare as MessageSquareIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import webSocketService from "@/services/webSocketService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function MessagesPage() {
   const { id } = useParams();
@@ -170,6 +171,41 @@ export default function MessagesPage() {
     sendMessageMutation.mutate(message);
   };
 
+  // Fetch following list for conversation suggestions
+  const {
+    data: following,
+    isLoading: isFollowingLoading,
+  } = useQuery({
+    queryKey: [`/api/users/${currentUser?._id}/following`],
+    queryFn: async () => {
+      if (!currentUser?._id) return [];
+      const res = await fetch(`/api/users/${currentUser._id}/following`);
+      if (!res.ok) throw new Error("Failed to fetch following list");
+      return res.json();
+    },
+    enabled: !!currentUser?._id,
+  });
+  
+  // State for search functionality
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Filter following list based on search term
+  const filteredFollowing = following?.filter((user: any) => {
+    if (!searchTerm) return true;
+    return (
+      user.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
+  
+  // Function to start a new conversation
+  const startConversation = (userId: string) => {
+    navigate(`/messages/${userId}`);
+    setIsDialogOpen(false);
+    setSearchTerm("");
+  };
+  
   // Don't render anything during SSR to avoid hydration mismatch with date formatting
   if (!isClient) {
     return (
@@ -186,8 +222,69 @@ export default function MessagesPage() {
       <div className="flex h-[calc(100vh-16rem)]">
         {/* Conversations List */}
         <div className={`w-80 border-r border-border ${id ? 'hidden md:block' : 'block'}`}>
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border flex justify-between items-center">
             <h2 className="font-bold text-lg">Messages</h2>
+            
+            {/* New Message Button */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <UserPlus className="w-4 h-4" /> 
+                  <span className="hidden sm:inline">New Message</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>New Conversation</DialogTitle>
+                </DialogHeader>
+                
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search people you follow..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                
+                {/* Following List */}
+                <div className="mt-2 max-h-80 overflow-y-auto">
+                  {isFollowingLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : filteredFollowing && filteredFollowing.length > 0 ? (
+                    <div className="space-y-2">
+                      {filteredFollowing.map((user: any) => (
+                        <div 
+                          key={user._id} 
+                          className="flex items-center gap-3 p-2 rounded-md hover:bg-secondary cursor-pointer"
+                          onClick={() => startConversation(user._id)}
+                        >
+                          <img 
+                            src={user.profileImage || "https://via.placeholder.com/40"} 
+                            alt={user.displayName} 
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                          <div>
+                            <p className="font-medium">{user.displayName}</p>
+                            <p className="text-sm text-muted-foreground">@{user.username}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        {searchTerm ? "No matching users found" : "You're not following anyone yet"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {isConversationsLoading ? (
@@ -199,11 +296,21 @@ export default function MessagesPage() {
               <p className="text-destructive">Failed to load conversations</p>
             </div>
           ) : conversations && conversations.length === 0 ? (
-            <div className="p-4 text-center">
-              <p className="text-muted-foreground">No conversations yet</p>
-              <p className="text-sm text-muted-foreground">
-                Start a new conversation by visiting a user's profile and sending them a message.
-              </p>
+            <div className="p-4 text-center flex flex-col items-center gap-3">
+              <MessageSquareIcon className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <p className="text-muted-foreground">No conversations yet</p>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Start a conversation with someone you follow.
+                </p>
+              </div>
+              <Button 
+                onClick={() => setIsDialogOpen(true)} 
+                className="w-full md:w-auto gap-2"
+              >
+                <UserPlus className="w-4 h-4" /> 
+                Start New Conversation
+              </Button>
             </div>
           ) : (
             <div className="divide-y divide-border overflow-y-auto max-h-full">
