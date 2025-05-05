@@ -46,8 +46,8 @@ export default function ProfilePage() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const userId = id ? parseInt(id) : currentUser?.id || 0;
-  const isOwnProfile = currentUser?.id === userId;
+  const userId = id || (currentUser?._id || currentUser?.id || "");
+  const isOwnProfile = (currentUser?._id === userId) || (currentUser?.id === userId);
 
   const [activeTab, setActiveTab] = useState<"blogs" | "replies" | "media" | "likes">("blogs");
 

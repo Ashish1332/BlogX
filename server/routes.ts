@@ -548,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Routes
   app.get("/api/users/:id", async (req, res) => {
     try {
-      const userId = parseInt(req.params.id);
+      const userId = req.params.id;
       const user = await storage.getUser(userId);
       
       if (!user) {
