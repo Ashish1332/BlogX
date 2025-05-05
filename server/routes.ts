@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/blogs/user/:userId", async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
       
@@ -242,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/blogs/:id", async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
@@ -302,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.put("/api/blogs/:id", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
@@ -329,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.delete("/api/blogs/:id", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Like Routes
   app.post("/api/blogs/:id/like", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {

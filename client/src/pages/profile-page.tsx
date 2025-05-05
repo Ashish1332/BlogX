@@ -166,7 +166,7 @@ export default function ProfilePage() {
     followMutation.mutate();
   };
 
-  const handleDeleteBlog = (blogId: number) => {
+  const handleDeleteBlog = (blogId: string) => {
     // Refresh the blog list after deletion
     refetchBlogs();
   };
