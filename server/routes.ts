@@ -15,31 +15,55 @@ const uploadsDir = path.join(process.cwd(), 'uploads');
 // Create uploads directory if it doesn't exist
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("[INIT] Created uploads directory:", uploadsDir);
 }
 
-// Configure storage for profile images
+// Set proper permissions on the uploads directory
+try {
+  fs.chmodSync(uploadsDir, 0o777); // Full read, write, execute for everyone
+  console.log("[INIT] Set permissions on uploads directory:", uploadsDir);
+} catch (err) {
+  console.error("[INIT] Error setting permissions on uploads directory:", err);
+}
+
+// Configure storage for file uploads
 const storage_config = multer.diskStorage({
   destination: function (req, file, cb) {
+    // Double-check that the directory exists at time of upload
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      console.log("[UPLOAD] Created uploads directory on-demand:", uploadsDir);
+    }
+    console.log("[UPLOAD] Destination called for file:", file.originalname);
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    // Get original file extension or default to .bin if none
+    const ext = path.extname(file.originalname) || '.bin';
+    const finalFilename = file.fieldname + '-' + uniqueSuffix + ext;
+    console.log("[UPLOAD] Generated filename:", finalFilename, "for original:", file.originalname);
+    cb(null, finalFilename);
   }
 });
 
+// Create a simple storage handler that logs all operations
 const upload = multer({ 
   storage: storage_config,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    console.log("[UPLOAD] File filter called for:", file.originalname, "mimetype:", file.mimetype);
+    
+    // Accept all images for now to debug the upload process
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
     if (allowedTypes.includes(file.mimetype)) {
+      console.log("[UPLOAD] File accepted:", file.originalname);
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.") as any);
+      console.log("[UPLOAD] File rejected:", file.originalname, "mimetype not allowed:", file.mimetype);
+      cb(null, false);
     }
   }
 });
@@ -961,8 +985,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Created uploads directory at ${uploadsDir}`);
   }
   
+  // Set proper permissions on uploads directory
+  try {
+    fs.chmodSync(uploadsDir, 0o777);
+    console.log(`Set permissions on uploads directory at ${uploadsDir}`);
+  } catch (err) {
+    console.error('Error setting permissions on uploads directory:', err);
+  }
+  
   // Serve uploads directory for uploaded images
   app.use('/uploads', express.static(uploadsDir));
+  
+  // Serve test upload HTML page
+  app.get('/test-upload', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'test-upload.html'));
+  });
   
   // Simple test upload endpoint - no authentication required
   app.post('/api/test-upload', upload.single('testFile'), (req, res) => {
