@@ -362,10 +362,64 @@ export class DatabaseStorage implements IStorage {
   
   async unfollowUser(followerId: string, followingId: string): Promise<boolean> {
     try {
+      console.log("unfollowUser called with:", {
+        followerId,
+        followingId,
+        followerIdType: typeof followerId,
+        followingIdType: typeof followingId
+      });
+      
+      // Check if the IDs are valid MongoDB ObjectId format
+      if (!followerId || !followingId || 
+          followerId === "-1" || followingId === "-1" || 
+          followerId === "undefined" || followingId === "undefined" ||
+          followerId.length !== 24 || followingId.length !== 24) {
+        console.error("Invalid user IDs for unfollowing:", { followerId, followingId });
+        return false;
+      }
+      
+      // Check if both users exist
+      const followerUser = await User.findById(followerId);
+      const followingUser = await User.findById(followingId);
+      
+      if (!followerUser) {
+        console.error("Follower user not found:", followerId);
+        return false;
+      }
+      
+      if (!followingUser) {
+        console.error("Following user not found:", followingId);
+        return false;
+      }
+      
+      console.log("Both users exist for unfollow:", {
+        follower: followerUser._id.toString(),
+        following: followingUser._id.toString()
+      });
+      
+      // First check if the follow relationship exists
+      const existingFollow = await Follower.findOne({
+        follower: followerId,
+        following: followingId
+      });
+      
+      if (!existingFollow) {
+        console.log("Follow relationship does not exist, nothing to unfollow");
+        return false;
+      }
+      
+      console.log("Found existing follow relationship:", existingFollow);
+      
       const result = await Follower.deleteOne({
         follower: followerId,
         following: followingId
       });
+      
+      console.log("Unfollow result:", {
+        acknowledged: result.acknowledged,
+        deletedCount: result.deletedCount
+      });
+      
       return result.deletedCount > 0;
     } catch (error) {
       console.error("Error unfollowing user:", error);
@@ -395,10 +449,28 @@ export class DatabaseStorage implements IStorage {
   
   async isFollowing(followerId: string, followingId: string): Promise<boolean> {
     try {
+      console.log("isFollowing check:", {
+        followerId,
+        followingId,
+        followerIdType: typeof followerId,
+        followingIdType: typeof followingId
+      });
+      
+      // Check if the IDs are valid MongoDB ObjectId format
+      if (!followerId || !followingId || 
+          followerId === "-1" || followingId === "-1" || 
+          followerId === "undefined" || followingId === "undefined" ||
+          followerId.length !== 24 || followingId.length !== 24) {
+        console.error("Invalid user IDs for isFollowing check:", { followerId, followingId });
+        return false;
+      }
+      
       const follow = await Follower.findOne({
         follower: followerId,
         following: followingId
       });
+      
+      console.log("isFollowing result:", !!follow);
       return !!follow;
     } catch (error) {
       console.error("Error checking if following:", error);

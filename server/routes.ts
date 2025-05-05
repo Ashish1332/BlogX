@@ -764,23 +764,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/users/:id/followers", async (req, res) => {
     try {
-      const userId = parseInt(req.params.id);
+      // For MongoDB, use the string ID directly
+      const userId = req.params.id;
+      console.log("Fetching followers for user:", userId);
+      
       const user = await storage.getUser(userId);
       
       if (!user) {
+        console.log("User not found:", userId);
         return res.status(404).json({ message: "User not found" });
       }
       
       const followers = await storage.getFollowers(userId);
+      console.log(`Found ${followers.length} followers for user ${userId}`);
       
       // If user is authenticated, check which followers they are following
-      if (req.isAuthenticated()) {
+      if (req.isAuthenticated() && req.user) {
+        const currentUserId = req.user._id?.toString();
+        console.log("Current authenticated user:", currentUserId);
+        
         const enhancedFollowers = await Promise.all(followers.map(async (follower) => {
-          const isFollowing = await storage.isFollowing(req.user.id, follower.id);
+          // Use MongoDB's _id instead of id property
+          const followerId = follower._id ? follower._id.toString() : '';
+          const isFollowing = await storage.isFollowing(currentUserId, followerId);
+          
           return {
             ...follower,
             isFollowing,
-            isCurrentUser: follower.id === req.user.id
+            // Compare string IDs for MongoDB
+            isCurrentUser: followerId === currentUserId
           };
         }));
         
@@ -796,23 +808,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/users/:id/following", async (req, res) => {
     try {
-      const userId = parseInt(req.params.id);
+      // For MongoDB, use the string ID directly
+      const userId = req.params.id;
+      console.log("Fetching following for user:", userId);
+      
       const user = await storage.getUser(userId);
       
       if (!user) {
+        console.log("User not found:", userId);
         return res.status(404).json({ message: "User not found" });
       }
       
       const following = await storage.getFollowing(userId);
+      console.log(`Found ${following.length} following for user ${userId}`);
       
       // If user is authenticated, check which users they are following
-      if (req.isAuthenticated()) {
+      if (req.isAuthenticated() && req.user) {
+        const currentUserId = req.user._id?.toString();
+        console.log("Current authenticated user:", currentUserId);
+        
         const enhancedFollowing = await Promise.all(following.map(async (followedUser) => {
-          const isFollowing = await storage.isFollowing(req.user.id, followedUser.id);
+          // Use MongoDB's _id instead of id property
+          const followedUserId = followedUser._id ? followedUser._id.toString() : '';
+          const isFollowing = await storage.isFollowing(currentUserId, followedUserId);
+          
           return {
             ...followedUser,
             isFollowing,
-            isCurrentUser: followedUser.id === req.user.id
+            // Compare string IDs for MongoDB
+            isCurrentUser: followedUserId === currentUserId
           };
         }));
         
