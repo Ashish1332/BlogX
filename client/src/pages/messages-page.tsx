@@ -399,7 +399,7 @@ export default function MessagesPage() {
                           </span>
                         </div>
                         <p className={`text-sm truncate ${!conversation.lastMessage.read && conversation.lastMessage.senderId === conversation.user._id ? 'font-semibold' : 'text-muted-foreground'}`}>
-                          {conversation.lastMessage.senderId === currentUser?._id ? 'You: ' : ''}
+                          {conversation.lastMessage.senderId === currentUser?._id ? 'You: ' : `${conversation.user.displayName}: `}
                           {conversation.lastMessage.content}
                         </p>
                       </div>
@@ -530,10 +530,10 @@ export default function MessagesPage() {
                       className={`flex ${msg.senderId === currentUser?._id ? 'justify-end' : 'justify-start'}`}
                     >
                       <div 
-                        className={`max-w-[70%] px-4 py-2 rounded-lg ${
+                        className={`max-w-[70%] px-4 py-2 ${
                           msg.senderId === currentUser?._id 
-                            ? 'bg-primary text-white' 
-                            : 'bg-secondary text-foreground'
+                            ? 'bg-primary text-white rounded-tl-lg rounded-tr-lg rounded-bl-lg' 
+                            : 'bg-secondary text-foreground rounded-tl-lg rounded-tr-lg rounded-br-lg'
                         }`}
                       >
                         <p>{msg.content}</p>
