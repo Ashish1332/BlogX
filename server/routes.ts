@@ -1,4 +1,4 @@
-import type { Express, Request } from "express";
+import express, { type Express, type Request } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
@@ -931,6 +931,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error sending message:", error);
       res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Serve uploads directory for uploaded images
+  app.use('/uploads', express.static('uploads'));
+
+  // Add file upload endpoints for profile and cover images
+  app.post('/api/upload/profile-image', isAuthenticated, upload.single('profileImage'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      // Create relative URL to uploaded file
+      const fileUrl = `/uploads/${req.file.filename}`;
+
+      // Update the user's profile with the new image URL
+      await storage.updateUser(req.user.id || req.user._id, {
+        profileImage: fileUrl
+      });
+
+      // Return the URL to the uploaded file
+      res.json({ 
+        success: true, 
+        fileUrl 
+      });
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      res.status(500).json({ message: 'Failed to upload profile image' });
+    }
+  });
+
+  app.post('/api/upload/cover-image', isAuthenticated, upload.single('coverImage'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      // Create relative URL to uploaded file
+      const fileUrl = `/uploads/${req.file.filename}`;
+
+      // Update the user's profile with the new cover image URL
+      await storage.updateUser(req.user.id || req.user._id, {
+        coverImage: fileUrl
+      });
+
+      // Return the URL to the uploaded file
+      res.json({ 
+        success: true, 
+        fileUrl 
+      });
+    } catch (error) {
+      console.error('Error uploading cover image:', error);
+      res.status(500).json({ message: 'Failed to upload cover image' });
     }
   });
   

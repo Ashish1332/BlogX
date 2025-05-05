@@ -6,7 +6,7 @@ import BlogCard from "@/components/blog/BlogCard";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, PenSquare, Calendar, ArrowLeft } from "lucide-react";
+import { Loader2, PenSquare, Calendar, ArrowLeft, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -281,16 +281,135 @@ export default function ProfilePage() {
                             </FormItem>
                           )}
                         />
+                        <div className="space-y-4">
+                          <div>
+                            <FormLabel>Profile Image</FormLabel>
+                            <div className="mt-2 flex items-center gap-4">
+                              <div className="h-16 w-16 rounded-full overflow-hidden bg-secondary">
+                                {profile.profileImage ? (
+                                  <img 
+                                    src={profile.profileImage} 
+                                    alt={profile.displayName} 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary">
+                                    {profile.displayName.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <label className="cursor-pointer">
+                                <Input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    if (e.target.files?.length) {
+                                      const file = e.target.files[0];
+                                      const formData = new FormData();
+                                      formData.append('profileImage', file);
+                                      
+                                      try {
+                                        const res = await fetch('/api/upload/profile-image', {
+                                          method: 'POST',
+                                          body: formData,
+                                          credentials: 'include'
+                                        });
+                                        
+                                        if (!res.ok) throw new Error('Failed to upload image');
+                                        
+                                        const data = await res.json();
+                                        form.setValue('profileImage', data.fileUrl);
+                                        
+                                        toast({
+                                          title: 'Profile image uploaded',
+                                          description: 'Your profile image has been uploaded successfully',
+                                        });
+                                      } catch (error) {
+                                        toast({
+                                          title: 'Upload failed',
+                                          description: (error as Error).message || 'Failed to upload image',
+                                          variant: 'destructive'
+                                        });
+                                      }
+                                    }
+                                  }}
+                                />
+                                <Button variant="outline" type="button">
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Upload
+                                </Button>
+                              </label>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <FormLabel>Cover Image</FormLabel>
+                            <div className="mt-2">
+                              <div className="h-32 w-full bg-secondary rounded-md overflow-hidden mb-2">
+                                {profile.coverImage && (
+                                  <img 
+                                    src={profile.coverImage} 
+                                    alt="Cover" 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                )}
+                              </div>
+                              <label className="cursor-pointer">
+                                <Input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    if (e.target.files?.length) {
+                                      const file = e.target.files[0];
+                                      const formData = new FormData();
+                                      formData.append('coverImage', file);
+                                      
+                                      try {
+                                        const res = await fetch('/api/upload/cover-image', {
+                                          method: 'POST',
+                                          body: formData,
+                                          credentials: 'include'
+                                        });
+                                        
+                                        if (!res.ok) throw new Error('Failed to upload image');
+                                        
+                                        const data = await res.json();
+                                        form.setValue('coverImage', data.fileUrl);
+                                        
+                                        toast({
+                                          title: 'Cover image uploaded',
+                                          description: 'Your cover image has been uploaded successfully',
+                                        });
+                                      } catch (error) {
+                                        toast({
+                                          title: 'Upload failed',
+                                          description: (error as Error).message || 'Failed to upload image',
+                                          variant: 'destructive'
+                                        });
+                                      }
+                                    }
+                                  }}
+                                />
+                                <Button variant="outline" type="button">
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Upload
+                                </Button>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Hidden form fields to store the image URLs */}
                         <FormField
                           control={form.control}
                           name="profileImage"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Profile Image URL</FormLabel>
+                            <FormItem className="hidden">
                               <FormControl>
-                                <Input placeholder="https://example.com/image.jpg" {...field} />
+                                <Input {...field} />
                               </FormControl>
-                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -298,12 +417,10 @@ export default function ProfilePage() {
                           control={form.control}
                           name="coverImage"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Cover Image URL</FormLabel>
+                            <FormItem className="hidden">
                               <FormControl>
-                                <Input placeholder="https://example.com/cover.jpg" {...field} />
+                                <Input {...field} />
                               </FormControl>
-                              <FormMessage />
                             </FormItem>
                           )}
                         />
