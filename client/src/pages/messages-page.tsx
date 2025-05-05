@@ -502,9 +502,16 @@ export default function MessagesPage() {
           <div className="flex-1 hidden md:flex flex-col items-center justify-center">
             <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">Your Messages</h3>
-            <p className="text-muted-foreground text-center max-w-md">
-              Select a conversation to read and send messages, or start a new conversation by visiting a user's profile.
+            <p className="text-muted-foreground text-center max-w-md mb-4">
+              Select a conversation to read and send messages, or start a new conversation with someone you follow.
             </p>
+            <Button 
+              onClick={() => setIsDialogOpen(true)} 
+              className="gap-2"
+            >
+              <UserPlus className="w-4 h-4" /> 
+              Start New Conversation
+            </Button>
           </div>
         )}
       </div>
