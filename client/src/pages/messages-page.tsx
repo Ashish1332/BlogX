@@ -62,6 +62,7 @@ export default function MessagesPage() {
     data: messages,
     isLoading: isMessagesLoading,
     isError: isMessagesError,
+    error: messagesError,
     refetch: refetchMessages
   } = useQuery({
     queryKey: [`/api/messages/${id}`],
@@ -88,6 +89,26 @@ export default function MessagesPage() {
     refetchInterval: 5000, // Poll for new messages every 5 seconds
     retry: 3, // Retry failed requests
   });
+  
+  // Handle 401 errors by redirecting to login
+  useEffect(() => {
+    if (isMessagesError && messagesError) {
+      const errorMessage = (messagesError as Error).message;
+      console.log("Messages error:", errorMessage);
+      
+      // If we get authentication errors repeatedly, redirect to messages home
+      if (errorMessage === "Failed to fetch messages" && id) {
+        console.log("Authentication error detected, redirecting to messages home");
+        
+        // Wait a moment before redirecting to avoid immediate redirection loops
+        const timeout = setTimeout(() => {
+          navigate("/messages");
+        }, 2000);
+        
+        return () => clearTimeout(timeout);
+      }
+    }
+  }, [isMessagesError, messagesError, id]);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
