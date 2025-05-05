@@ -79,7 +79,7 @@ export default function RightSidebar() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
           <input 
             type="text" 
-            placeholder="Search BlogX" 
+            placeholder="Search Blogr" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-secondary border border-transparent focus:border-primary text-foreground rounded-full py-2 pl-10 pr-4 focus:outline-none"
@@ -180,7 +180,7 @@ export default function RightSidebar() {
           <span>·</span>
           <a href="#" className="hover:underline">More</a>
         </div>
-        <div className="mt-2">© {new Date().getFullYear()} BlogX, Inc.</div>
+        <div className="mt-2">© {new Date().getFullYear()} Blogr, Inc.</div>
       </div>
     </div>
   );
