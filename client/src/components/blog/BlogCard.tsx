@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ShareMessageButton } from "@/components/ui/share-message-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -290,14 +291,22 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
                 <span>{blog.commentCount}</span>
               </a>
             </Link>
+            {/* Copy Link Button */}
             <button 
               className="flex items-center gap-1 hover:text-green-500 group"
               onClick={handleShare}
+              title="Copy link to clipboard"
             >
               <div className="p-2 rounded-full group-hover:bg-green-500/10">
                 <Share2 size={18} />
               </div>
             </button>
+            {/* Share via DM Button */}
+            <ShareMessageButton
+              blogId={blogId}
+              blogTitle={blog.title}
+            />
+            {/* Like Button */}
             <button 
               className={`flex items-center gap-1 group ${liked ? 'text-pink-500' : 'hover:text-pink-500'}`}
               onClick={handleLike}
@@ -312,6 +321,7 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
               </div>
               <span>{likeCount}</span>
             </button>
+            {/* Bookmark Button */}
             <button 
               className={`flex items-center gap-1 group ${bookmarked ? 'text-primary' : 'hover:text-primary'}`}
               onClick={handleBookmark}
@@ -325,8 +335,9 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
                 )}
               </div>
             </button>
+            {/* View Blog Button */}
             <Link href={`/blog/${blogId}`}>
-              <a className="flex items-center gap-1 hover:text-primary p-2 rounded-full hover:bg-primary/10">
+              <a className="flex items-center gap-1 hover:text-primary p-2 rounded-full hover:bg-primary/10" title="View full post">
                 <ExternalLink size={18} />
               </a>
             </Link>
