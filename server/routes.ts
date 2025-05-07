@@ -681,14 +681,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bookmark Routes
   app.post("/api/blogs/:id/bookmark", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      await storage.bookmarkBlog(req.user.id, blogId);
+      const currentUserId = req.user._id.toString();
+      await storage.bookmarkBlog(currentUserId, blogId);
       
       res.json({ success: true });
     } catch (error) {
@@ -699,14 +700,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.delete("/api/blogs/:id/bookmark", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      await storage.unbookmarkBlog(req.user.id, blogId);
+      const currentUserId = req.user._id.toString();
+      await storage.unbookmarkBlog(currentUserId, blogId);
       
       res.json({ success: true });
     } catch (error) {
@@ -717,13 +719,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/bookmarks", isAuthenticated, async (req, res) => {
     try {
-      const bookmarks = await storage.getBookmarks(req.user.id);
+      const currentUserId = req.user._id.toString();
+      const bookmarks = await storage.getBookmarks(currentUserId);
       
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(bookmarks.map(async (blog) => {
-        const likeCount = await storage.getLikeCount(blog.id);
-        const comments = await storage.getComments(blog.id);
-        const isLiked = await storage.isLikedByUser(req.user.id, blog.id);
+        // Use _id if available, otherwise fallback to id
+        const blogId = blog._id ? blog._id.toString() : blog.id;
+        
+        const likeCount = await storage.getLikeCount(blogId);
+        const comments = await storage.getComments(blogId);
+        const isLiked = await storage.isLikedByUser(currentUserId, blogId);
         
         return {
           ...blog,
