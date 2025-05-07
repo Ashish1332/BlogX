@@ -1357,6 +1357,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Move conversation deletion route above single message deletion
   // (order matters in Express, more specific routes should come first)
+  // Share blog post via direct message
+  app.post("/api/messages/share/:userId", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Get the receiver user ID from the params
+      const receiverId = req.params.userId;
+      console.log(`API: Sharing blog post with user: ${receiverId}`);
+      
+      const receiver = await storage.getUser(receiverId);
+      if (!receiver) {
+        console.error(`Receiver not found: ${receiverId}`);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Validate the request body containing blog ID and optional message
+      const { blogId, message } = req.body;
+      if (!blogId) {
+        return res.status(400).json({ message: "Blog ID is required" });
+      }
+      
+      // Verify the blog exists
+      const blog = await storage.getBlog(blogId);
+      if (!blog) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+      
+      // Get the sender ID (current user)
+      const senderId = req.user._id.toString();
+      
+      // Create the share message with blog link and optional message
+      let content = `Shared a blog post: ${blog.title}\nLink: /blog/${blogId}`;
+      if (message && message.trim()) {
+        content = `${message.trim()}\n\n${content}`;
+      }
+      
+      // Send the message
+      const sentMessage = await storage.sendMessage({
+        senderId,
+        receiverId,
+        content
+      });
+      
+      console.log(`API: Blog share message saved with ID: ${sentMessage._id}`);
+      
+      // Broadcast the message to the receiver if they're online
+      broadcastToUser(receiverId, {
+        type: 'new_message',
+        message: sentMessage,
+        sender: req.user,
+        isBlogShare: true,
+        blogId
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: sentMessage
+      });
+    } catch (error) {
+      console.error("Error sharing blog post:", error);
+      res.status(500).json({ message: "Failed to share blog post" });
+    }
+  });
+
   app.delete("/api/messages/conversation/:userId", isAuthenticated, async (req, res) => {
     try {
       const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();

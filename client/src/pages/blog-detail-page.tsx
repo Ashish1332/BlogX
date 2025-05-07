@@ -208,12 +208,61 @@ export default function BlogDetailPage() {
     },
   });
 
+  // Share via direct message mutation
+  const shareMutation = useMutation({
+    mutationFn: async ({ userId, message }: { userId: string, message?: string }) => {
+      await apiRequest("POST", `/api/messages/share/${userId}`, { blogId: id, message });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Blog shared!",
+        description: "Blog post has been shared via direct message",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to share blog",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // User search for sharing
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
+  
+  // Get followers to share with
+  const { 
+    data: followers,
+    isLoading: isFollowersLoading 
+  } = useQuery({
+    queryKey: [`/api/users/${user?._id}/followers`],
+    enabled: !!user && shareDialogOpen,
+  });
+  
+  // Filter followers based on search term
+  const filteredFollowers = searchTerm && followers ? 
+    followers.filter((follower: any) => 
+      follower.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      follower.username.toLowerCase().includes(searchTerm.toLowerCase())
+    ) : 
+    followers;
+  
   const handleShare = () => {
+    // Clipboard share
     navigator.clipboard.writeText(`${window.location.origin}/blog/${id}`);
     toast({
       title: "Link copied!",
       description: "Blog link has been copied to clipboard",
     });
+  };
+  
+  const handleShareViaMessage = (userId: string) => {
+    shareMutation.mutate({ userId, message: shareMessage });
+    setShareDialogOpen(false);
+    setShareMessage("");
   };
 
   const handleDeleteBlog = () => {
