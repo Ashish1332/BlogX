@@ -487,7 +487,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      if (blog.authorId !== req.user.id) {
+      // Compare with author's MongoDB _id
+      const authorId = blog.author?._id?.toString();
+      const currentUserId = req.user._id.toString();
+      
+      if (authorId !== currentUserId) {
         return res.status(403).json({ message: "Not authorized to delete this blog" });
       }
       
@@ -510,19 +514,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      await storage.likeBlog(req.user.id, blogId);
+      const currentUserId = req.user._id.toString();
+      await storage.likeBlog(currentUserId, blogId);
       
       // Create notification if the user is not liking their own blog
-      if (blog.authorId !== req.user.id) {
+      const authorId = blog.author?._id?.toString();
+      if (authorId !== currentUserId) {
         await storage.createNotification({
-          userId: blog.authorId,
-          actorId: req.user.id,
+          userId: authorId,
+          actorId: currentUserId,
           type: 'like',
           blogId
         });
         
         // Broadcast notification to blog author
-        broadcastToUser(blog.authorId, {
+        broadcastToUser(authorId, {
           type: 'notification',
           notification: {
             type: 'like',
@@ -543,14 +549,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.delete("/api/blogs/:id/like", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      await storage.unlikeBlog(req.user.id, blogId);
+      const currentUserId = req.user._id.toString();
+      await storage.unlikeBlog(currentUserId, blogId);
       
       const likeCount = await storage.getLikeCount(blogId);
       
@@ -564,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Comment Routes
   app.get("/api/blogs/:id/comments", async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
