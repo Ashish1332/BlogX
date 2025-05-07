@@ -114,7 +114,7 @@ export default function HomePage() {
 
         {blogs.map((blog: any) => (
           <BlogCard 
-            key={blog.id} 
+            key={blog._id || blog.id} 
             blog={blog} 
             onDelete={handleDeleteBlog}
           />

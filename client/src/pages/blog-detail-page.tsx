@@ -224,7 +224,7 @@ export default function BlogDetailPage() {
 
   // Delete comment mutation
   const deleteCommentMutation = useMutation({
-    mutationFn: async (commentId: number) => {
+    mutationFn: async (commentId: string) => {
       await apiRequest("DELETE", `/api/comments/${commentId}`);
     },
     onSuccess: () => {
@@ -233,7 +233,7 @@ export default function BlogDetailPage() {
       if (blog) {
         queryClient.setQueryData([`/api/blogs/${id}`], {
           ...blog,
-          commentCount: blog.commentCount - 1,
+          commentCount: blog.commentCount > 0 ? blog.commentCount - 1 : 0,
         });
       }
       
@@ -321,7 +321,7 @@ export default function BlogDetailPage() {
     commentMutation.mutate(comment);
   };
 
-  const handleDeleteComment = (commentId: number) => {
+  const handleDeleteComment = (commentId: string) => {
     if (window.confirm("Are you sure you want to delete this comment?")) {
       deleteCommentMutation.mutate(commentId);
     }
@@ -697,13 +697,13 @@ export default function BlogDetailPage() {
             </div>
           ) : (
             comments && comments.map((comment: any) => (
-              <div key={comment.id} className="p-4 hover:bg-secondary/50">
+              <div key={comment._id || comment.id} className="p-4 hover:bg-secondary/50">
                 <div className="flex gap-3">
-                  <Link href={`/profile/${comment.user.id}`}>
+                  <Link href={`/profile/${comment.user?._id || comment.user?.id}`}>
                     <a>
                       <img 
-                        src={comment.user.profileImage || "https://via.placeholder.com/40"} 
-                        alt={comment.user.displayName} 
+                        src={comment.user?.profileImage || "https://via.placeholder.com/40"} 
+                        alt={comment.user?.displayName} 
                         className="w-10 h-10 rounded-full object-cover" 
                       />
                     </a>
@@ -711,15 +711,15 @@ export default function BlogDetailPage() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Link href={`/profile/${comment.user.id}`}>
-                          <a className="font-bold hover:underline">{comment.user.displayName}</a>
+                        <Link href={`/profile/${comment.user?._id || comment.user?.id}`}>
+                          <a className="font-bold hover:underline">{comment.user?.displayName}</a>
                         </Link>
                         <span className="text-muted-foreground mx-1">·</span>
                         <span className="text-muted-foreground text-sm">
                           {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                         </span>
                       </div>
-                      {user?.id === comment.user.id && (
+                      {(user?._id || user?.id) === (comment.user?._id || comment.user?.id) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button className="text-muted-foreground rounded-full p-1 hover:bg-secondary">
@@ -729,7 +729,7 @@ export default function BlogDetailPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem 
                               className="text-destructive focus:text-destructive"
-                              onClick={() => handleDeleteComment(comment.id)}
+                              onClick={() => handleDeleteComment(comment._id || comment.id)}
                             >
                               Delete
                             </DropdownMenuItem>
