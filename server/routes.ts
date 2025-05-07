@@ -589,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/blogs/:id/comments", isAuthenticated, async (req, res) => {
     try {
-      const blogId = parseInt(req.params.id);
+      const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
@@ -597,10 +597,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const validatedData = insertCommentSchema.parse(req.body);
+      const currentUserId = req.user._id.toString();
       
       const comment = await storage.createComment({
         ...validatedData,
-        userId: req.user.id,
+        userId: currentUserId,
         blogId
       });
       
@@ -611,13 +612,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Create notification if the user is not commenting on their own blog
-      if (blog.authorId !== req.user.id) {
+      const authorId = blog.author?._id?.toString() || blog.authorId;
+      if (authorId !== currentUserId) {
         await storage.createNotification({
-          userId: blog.authorId,
-          actorId: req.user.id,
+          userId: authorId,
+          actorId: currentUserId,
           type: 'comment',
           blogId,
-          commentId: comment.id
+          commentId: comment._id?.toString()
         });
         
         // Broadcast notification to blog author
@@ -655,17 +657,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.delete("/api/comments/:id", isAuthenticated, async (req, res) => {
     try {
-      const commentId = parseInt(req.params.id);
+      const commentId = req.params.id;
       
       // Check if comment exists and belongs to user
       const comments = await storage.getComments(0); // This is inefficient but works for now
-      const comment = comments.find(c => c.id === commentId);
+      const comment = comments.find(c => 
+        (c._id && c._id.toString() === commentId) || 
+        (c.id && c.id.toString() === commentId)
+      );
       
       if (!comment) {
         return res.status(404).json({ message: "Comment not found" });
       }
       
-      if (comment.userId !== req.user.id) {
+      const currentUserId = req.user._id.toString();
+      const commentUserId = comment.user?._id?.toString() || comment.userId?.toString();
+      
+      if (commentUserId !== currentUserId) {
         return res.status(403).json({ message: "Not authorized to delete this comment" });
       }
       
