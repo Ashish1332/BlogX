@@ -57,26 +57,26 @@ export default function BlogDetailPage() {
 
   // Fetch blog with refetching on window focus
   const { 
-    data: blog, 
+    data: blog = {}, 
     isLoading: isBlogLoading, 
     isError: isBlogError,
     refetch: refetchBlog 
   } = useQuery({
     queryKey: [`/api/blogs/${id}`],
-    enabled: !!id,
+    enabled: !!id && id.length === 24, // Ensure valid MongoDB id format
     refetchOnWindowFocus: true,
     staleTime: 0 // Always refetch for latest data
   });
 
   // Fetch comments with refetching on window focus
   const { 
-    data: comments, 
+    data: comments = [], 
     isLoading: isCommentsLoading, 
     isError: isCommentsError,
     refetch: refetchComments 
   } = useQuery({
     queryKey: [`/api/blogs/${id}/comments`],
-    enabled: !!id,
+    enabled: !!id && id.length === 24, // Ensure valid MongoDB id format
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0 // Always refetch for latest data
@@ -282,8 +282,8 @@ export default function BlogDetailPage() {
     data: followers,
     isLoading: isFollowersLoading 
   } = useQuery({
-    queryKey: [`/api/users/${user?._id}/followers`],
-    enabled: !!user && shareDialogOpen,
+    queryKey: [`/api/users/${user?._id || user?.id}/followers`],
+    enabled: !!user && shareDialogOpen && !!(user?._id || user?.id),
   });
   
   // Filter followers based on search term
@@ -363,7 +363,10 @@ export default function BlogDetailPage() {
     );
   }
 
-  const isAuthor = user?.id === blog.author.id;
+  // Handle MongoDB _id field or regular id field for users
+  const userId = user?._id || user?.id;
+  const authorId = blog.author?._id || blog.author?.id;
+  const isAuthor = userId === authorId;
   const timeAgo = formatDistanceToNow(new Date(blog.createdAt), { addSuffix: true });
 
   return (
@@ -385,20 +388,20 @@ export default function BlogDetailPage() {
           {/* Author Info */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Link href={`/profile/${blog.author.id}`}>
+              <Link href={`/profile/${blog.author?._id || blog.author?.id}`}>
                 <a>
                   <img 
-                    src={blog.author.profileImage || "https://via.placeholder.com/40"} 
-                    alt={blog.author.displayName} 
+                    src={blog.author?.profileImage || "https://via.placeholder.com/40"} 
+                    alt={blog.author?.displayName} 
                     className="w-12 h-12 rounded-full object-cover" 
                   />
                 </a>
               </Link>
               <div>
-                <Link href={`/profile/${blog.author.id}`}>
-                  <a className="font-bold hover:underline">{blog.author.displayName}</a>
+                <Link href={`/profile/${blog.author?._id || blog.author?.id}`}>
+                  <a className="font-bold hover:underline">{blog.author?.displayName}</a>
                 </Link>
-                <p className="text-muted-foreground text-sm">@{blog.author.username}</p>
+                <p className="text-muted-foreground text-sm">@{blog.author?.username}</p>
               </div>
             </div>
 

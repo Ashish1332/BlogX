@@ -400,7 +400,7 @@ export default function ProfilePage() {
 
             {blogs && blogs.map((blog: any) => (
               <BlogCard 
-                key={blog.id} 
+                key={blog._id} 
                 blog={blog} 
                 onDelete={handleDeleteBlog}
               />

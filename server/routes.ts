@@ -423,23 +423,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/blogs/user/:userId", async (req, res) => {
     try {
       const userId = req.params.userId;
+      
+      console.log(`Fetching blogs for user ${userId}`);
+      
+      // Validate userId format
+      if (!userId || userId.length !== 24) {
+        console.error("Invalid user ID format for blogs:", userId);
+        return res.status(400).json({ message: "Invalid user ID format" });
+      }
+      
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
       
       const blogs = await storage.getBlogsByUser(userId, limit, offset);
+      console.log(`Got ${blogs.length} blogs for user ${userId}`);
       
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(blogs.map(async (blog) => {
-        const likeCount = await storage.getLikeCount(blog.id);
-        const comments = await storage.getComments(blog.id);
+        // Use MongoDB _id if available, otherwise fallback to id
+        const blogId = blog._id ? blog._id.toString() : blog.id;
+        
+        if (!blogId) {
+          console.error(`Blog in user list has no valid ID:`, blog);
+          return {
+            ...blog,
+            likeCount: 0,
+            commentCount: 0,
+            isLiked: false,
+            isBookmarked: false
+          };
+        }
+        
+        console.log(`Processing user blog: ${blogId}, title: ${blog.title?.substring(0, 30)}`);
+        
+        const likeCount = await storage.getLikeCount(blogId);
+        const comments = await storage.getComments(blogId);
         
         // If user is authenticated, check if they liked or bookmarked the blog
         let isLiked = false;
         let isBookmarked = false;
         
         if (req.isAuthenticated()) {
-          isLiked = await storage.isLikedByUser(req.user.id, blog.id);
-          isBookmarked = await storage.isBookmarkedByUser(req.user.id, blog.id);
+          // Ensure we have a valid user ID
+          const currentUserId = req.user?._id?.toString();
+          if (currentUserId && currentUserId.length === 24) {
+            isLiked = await storage.isLikedByUser(currentUserId, blogId);
+            isBookmarked = await storage.isBookmarkedByUser(currentUserId, blogId);
+            console.log(`User blog ${blogId} interactions for user ${currentUserId}: isLiked=${isLiked}, isBookmarked=${isBookmarked}`);
+          } else {
+            console.error("Invalid user ID for blog interaction check:", currentUserId);
+          }
         }
         
         return {
