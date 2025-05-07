@@ -20,6 +20,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Function to format blog content with proper headings and paragraphs
+function formatBlogContent(content: string, expanded: boolean): string {
+  if (!content) return '';
+  
+  // Limit content length if not expanded
+  let processedContent = content;
+  if (!expanded && content.length > 250) {
+    processedContent = content.substring(0, 250) + '...';
+  }
+  
+  // Process content to add proper formatting
+  return processedContent
+    .split('\n\n')
+    .map(paragraph => {
+      if (paragraph.startsWith('## ')) {
+        return `<h2 class="text-xl font-bold my-3">${paragraph.substring(3)}</h2>`;
+      }
+      return `<p class="my-2">${paragraph}</p>`;
+    })
+    .join('');
+}
+
 interface BlogCardProps {
   blog: {
     id: number;
