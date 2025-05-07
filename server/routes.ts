@@ -1628,11 +1628,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the sender ID (current user)
       const senderId = req.user._id.toString();
       
-      // Create the share message with blog link and optional message
-      let content = `Shared a blog post: ${blog.title}\nLink: /blog/${blogId}`;
-      if (message && message.trim()) {
-        content = `${message.trim()}\n\n${content}`;
-      }
+      // Create a JSON structure with blog details in the message content
+      const blogPreview = {
+        type: 'blog_share',
+        blogId: blog._id.toString(),
+        title: blog.title,
+        content: blog.content.substring(0, 150) + (blog.content.length > 150 ? '...' : ''),
+        image: blog.image || null,
+        author: {
+          id: blog.author._id || blog.author.id,
+          displayName: blog.author.displayName,
+          username: blog.author.username,
+          profileImage: blog.author.profileImage
+        },
+        userMessage: message && message.trim() ? message.trim() : ''
+      };
+      
+      // Convert to JSON string for storage
+      const content = JSON.stringify(blogPreview);
       
       // Send the message
       const sentMessage = await storage.sendMessage({
@@ -1649,7 +1662,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: sentMessage,
         sender: req.user,
         isBlogShare: true,
-        blogId
+        blogId: blog._id.toString(),
+        blogPreview
       });
       
       res.status(201).json({
