@@ -44,7 +44,8 @@ function formatBlogContent(content: string, expanded: boolean): string {
 
 interface BlogCardProps {
   blog: {
-    id: number;
+    _id: string;
+    id?: string; // For backward compatibility
     title: string;
     content: string;
     image?: string;
@@ -54,13 +55,14 @@ interface BlogCardProps {
     isLiked?: boolean;
     isBookmarked?: boolean;
     author: {
-      id: number;
+      _id: string;
+      id?: string; // For backward compatibility
       username: string;
       displayName: string;
       profileImage?: string;
     };
   };
-  onDelete?: (blogId: number) => void;
+  onDelete?: (blogId: string) => void;
 }
 
 export default function BlogCard({ blog, onDelete }: BlogCardProps) {
@@ -71,13 +73,16 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
   const [likeCount, setLikeCount] = useState(blog.likeCount);
   const [bookmarked, setBookmarked] = useState(blog.isBookmarked || false);
 
+  // Get the proper blog ID (MongoDB _id or fallback to .id)
+  const blogId = blog._id || blog.id;
+  
   const likeMutation = useMutation({
     mutationFn: async () => {
       if (liked) {
-        const res = await apiRequest("DELETE", `/api/blogs/${blog.id}/like`);
+        const res = await apiRequest("DELETE", `/api/blogs/${blogId}/like`);
         return await res.json();
       } else {
-        const res = await apiRequest("POST", `/api/blogs/${blog.id}/like`);
+        const res = await apiRequest("POST", `/api/blogs/${blogId}/like`);
         return await res.json();
       }
     },
@@ -97,10 +102,10 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
   const bookmarkMutation = useMutation({
     mutationFn: async () => {
       if (bookmarked) {
-        const res = await apiRequest("DELETE", `/api/blogs/${blog.id}/bookmark`);
+        const res = await apiRequest("DELETE", `/api/blogs/${blogId}/bookmark`);
         return await res.json();
       } else {
-        const res = await apiRequest("POST", `/api/blogs/${blog.id}/bookmark`);
+        const res = await apiRequest("POST", `/api/blogs/${blogId}/bookmark`);
         return await res.json();
       }
     },
@@ -126,15 +131,15 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/blogs/${blog.id}`);
+      await apiRequest("DELETE", `/api/blogs/${blogId}`);
     },
     onSuccess: () => {
       toast({
         title: "Blog deleted",
         description: "Your blog has been deleted",
       });
-      if (onDelete) {
-        onDelete(blog.id);
+      if (onDelete && blogId) {
+        onDelete(blogId);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/blogs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] });
@@ -173,7 +178,7 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
   };
 
   const handleShare = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/blog/${blog.id}`);
+    navigator.clipboard.writeText(`${window.location.origin}/blog/${blogId}`);
     toast({
       title: "Link copied!",
       description: "Blog link has been copied to clipboard",
@@ -187,13 +192,17 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
   };
 
   const timeAgo = formatDistanceToNow(new Date(blog.createdAt), { addSuffix: true });
-  const isAuthor = user?.id === blog.author.id;
+  
+  // Get author ID (MongoDB _id or fallback to .id)
+  const authorId = blog.author._id || blog.author.id;
+  const userId = user?._id || user?.id;
+  const isAuthor = userId === authorId;
 
   return (
     <article className="p-4 hover:bg-secondary/50 transition cursor-pointer">
       <div className="flex gap-3">
         <div>
-          <Link href={`/profile/${blog.author.id}`}>
+          <Link href={`/profile/${authorId}`}>
             <a>
               <img 
                 src={blog.author.profileImage || "https://via.placeholder.com/40"} 
@@ -207,7 +216,7 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
           {/* Blog Header */}
           <div className="flex items-center justify-between gap-1 mb-1">
             <div className="flex items-center gap-1">
-              <Link href={`/profile/${blog.author.id}`}>
+              <Link href={`/profile/${authorId}`}>
                 <a className="font-bold hover:underline">{blog.author.displayName}</a>
               </Link>
               <span className="text-muted-foreground">@{blog.author.username}</span>
@@ -235,11 +244,24 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
           </div>
           
           {/* Blog Title */}
-          <Link href={`/blog/${blog.id}`}>
+          <Link href={`/blog/${blogId}`}>
             <a>
               <h2 className="text-lg font-bold mb-2">{blog.title}</h2>
             </a>
           </Link>
+          
+          {/* Blog Image - Placed immediately after title with fixed dimensions */}
+          {blog.image && (
+            <Link href={`/blog/${blogId}`}>
+              <a className="block mb-4 rounded-xl overflow-hidden">
+                <img 
+                  src={blog.image} 
+                  alt={blog.title} 
+                  className="w-full max-h-[300px] object-cover" 
+                />
+              </a>
+            </Link>
+          )}
           
           {/* Blog Content */}
           <div 
@@ -258,22 +280,9 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
             </button>
           )}
           
-          {/* Blog Image */}
-          {blog.image && (
-            <Link href={`/blog/${blog.id}`}>
-              <a className="block mb-3 rounded-2xl overflow-hidden">
-                <img 
-                  src={blog.image} 
-                  alt={blog.title} 
-                  className="w-full h-auto" 
-                />
-              </a>
-            </Link>
-          )}
-          
           {/* Interaction Buttons */}
           <div className="flex justify-between text-muted-foreground">
-            <Link href={`/blog/${blog.id}`}>
+            <Link href={`/blog/${blogId}`}>
               <a className="flex items-center gap-1 hover:text-primary group">
                 <div className="p-2 rounded-full group-hover:bg-primary/10">
                   <MessageSquare size={18} />
@@ -316,7 +325,7 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
                 )}
               </div>
             </button>
-            <Link href={`/blog/${blog.id}`}>
+            <Link href={`/blog/${blogId}`}>
               <a className="flex items-center gap-1 hover:text-primary p-2 rounded-full hover:bg-primary/10">
                 <ExternalLink size={18} />
               </a>
