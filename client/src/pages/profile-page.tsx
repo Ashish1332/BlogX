@@ -66,7 +66,7 @@ export default function ProfilePage() {
 
   const [activeTab, setActiveTab] = useState<"blogs" | "replies" | "media" | "likes">("blogs");
 
-  // Fetch user profile
+  // Fetch user profile with improved caching strategy
   const {
     data: profile,
     isLoading: isProfileLoading,
@@ -75,9 +75,11 @@ export default function ProfilePage() {
   } = useQuery({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId && userId !== "undefined",
+    refetchOnWindowFocus: true,
+    staleTime: 30000, // 30 seconds
   });
 
-  // Fetch user's blogs
+  // Fetch user's blogs with improved caching strategy
   const {
     data: blogs,
     isLoading: isBlogsLoading,
@@ -86,6 +88,8 @@ export default function ProfilePage() {
   } = useQuery({
     queryKey: [`/api/blogs/user/${userId}`],
     enabled: !!userId && userId !== "undefined" && activeTab === "blogs",
+    refetchOnWindowFocus: true,
+    staleTime: 30000, // 30 seconds
   });
 
   // Follow/unfollow mutation
@@ -116,7 +120,13 @@ export default function ProfilePage() {
       console.log(`Follow/unfollow successful! Invalidating query for user ${userId}`);
       console.log("Response data:", data);
       
+      // Invalidate all related queries to ensure consistency across views
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] }); // For user search
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] }); // To update feed
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUser?._id || currentUser?.id}/following`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/followers`] });
+      
       toast({
         title: profile?.isFollowing ? "Unfollowed" : "Followed",
         description: profile?.isFollowing 
@@ -170,8 +180,13 @@ export default function ProfilePage() {
       });
       setIsEditProfileOpen(false);
       refetchProfile();
-      // Also update the current user data
+      
+      // Invalidate all related queries to ensure UI consistency
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs"] }); // Update author info in blog lists
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] }); 
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] }); // For search results
     },
     onError: (error) => {
       toast({
