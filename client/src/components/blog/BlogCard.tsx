@@ -220,9 +220,12 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
           </Link>
           
           {/* Blog Content */}
-          <div className={`blog-content mb-3 ${expanded ? 'expanded' : ''}`}>
-            {blog.content}
-          </div>
+          <div 
+            className={`blog-content mb-3 ${expanded ? 'expanded' : ''}`}
+            dangerouslySetInnerHTML={{
+              __html: formatBlogContent(blog.content, expanded)
+            }}
+          />
           
           {blog.content.length > 250 && (
             <button 

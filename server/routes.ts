@@ -1676,5 +1676,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Add blog image upload endpoint
+  app.post('/api/upload/blog-image', isAuthenticated, upload.single('blogImage'), async (req, res) => {
+    console.log("BLOG IMAGE UPLOAD ENDPOINT CALLED");
+    console.log("Request user:", req.user);
+    console.log("Request file:", req.file ? "File present" : "No file");
+    console.log("Request body:", req.body);
+    
+    try {
+      if (!req.file) {
+        console.error("No file uploaded in blog image request");
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+
+      // Log file details 
+      console.log("Blog image upload - File details:", {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        encoding: req.file.encoding,
+        mimetype: req.file.mimetype,
+        destination: req.file.destination,
+        filename: req.file.filename,
+        path: req.file.path,
+        size: req.file.size
+      });
+
+      // Create relative URL to uploaded file
+      const imageUrl = `/uploads/${req.file.filename}`;
+      
+      // Verify file exists on disk
+      const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
+      const fileExists = fs.existsSync(fullPath);
+      console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
+      
+      if (!fileExists) {
+        return res.status(500).json({ 
+          success: false, 
+          message: 'File upload failed - file not found on disk' 
+        });
+      }
+
+      // Return the URL to the uploaded file
+      res.status(201).json({
+        success: true,
+        message: "Blog image uploaded successfully",
+        imageUrl
+      });
+    } catch (error) {
+      console.error("Error uploading blog image:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to upload blog image',
+        error: (error as Error).message 
+      });
+    }
+  });
+  
   return httpServer;
 }
