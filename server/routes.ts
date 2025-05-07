@@ -508,37 +508,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/blogs/:id/like", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
+      console.log("Like request for blog:", blogId);
+      
+      // Validate blogId format
+      if (!blogId || blogId.length !== 24) {
+        console.error("Invalid blog ID format for like:", blogId);
+        return res.status(400).json({ message: "Invalid blog ID format" });
+      }
+      
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
+        console.error("Blog not found for like:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      const currentUserId = req.user._id.toString();
-      await storage.likeBlog(currentUserId, blogId);
+      // Ensure we have a proper MongoDB ID for the user
+      const currentUserId = req.user._id?.toString();
+      if (!currentUserId || currentUserId.length !== 24) {
+        console.error("Invalid user ID for like:", currentUserId);
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      console.log("Adding like:", { userId: currentUserId, blogId });
+      const result = await storage.likeBlog(currentUserId, blogId);
+      
+      if (!result) {
+        console.error("Like operation failed");
+        return res.status(500).json({ message: "Failed to like blog" });
+      }
       
       // Create notification if the user is not liking their own blog
       const authorId = blog.author?._id?.toString();
       if (authorId !== currentUserId) {
-        await storage.createNotification({
-          userId: authorId,
-          actorId: currentUserId,
-          type: 'like',
-          blogId
-        });
+        console.log("Creating like notification for:", authorId);
         
-        // Broadcast notification to blog author
-        broadcastToUser(authorId, {
-          type: 'notification',
-          notification: {
+        try {
+          const notification = await storage.createNotification({
+            userId: authorId,
+            actorId: currentUserId,
             type: 'like',
-            actor: req.user,
-            blog
-          }
-        });
+            blogId
+          });
+          
+          // Broadcast notification to blog author
+          broadcastToUser(authorId, {
+            type: 'notification',
+            notification: {
+              type: 'like',
+              actor: req.user,
+              blog
+            }
+          });
+        } catch (notificationError) {
+          console.error("Failed to create like notification:", notificationError);
+          // Continue even if notification fails
+        }
       }
       
       const likeCount = await storage.getLikeCount(blogId);
+      console.log("Updated like count:", { blogId, likeCount });
       
       res.json({ success: true, likeCount });
     } catch (error) {
@@ -550,16 +579,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/blogs/:id/like", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
+      console.log("Unlike request for blog:", blogId);
+      
+      // Validate blogId format
+      if (!blogId || blogId.length !== 24) {
+        console.error("Invalid blog ID format for unlike:", blogId);
+        return res.status(400).json({ message: "Invalid blog ID format" });
+      }
+      
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
+        console.error("Blog not found for unlike:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      const currentUserId = req.user._id.toString();
-      await storage.unlikeBlog(currentUserId, blogId);
+      // Ensure we have a proper MongoDB ID for the user
+      const currentUserId = req.user._id?.toString();
+      if (!currentUserId || currentUserId.length !== 24) {
+        console.error("Invalid user ID for unlike:", currentUserId);
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      console.log("Removing like:", { userId: currentUserId, blogId });
+      const result = await storage.unlikeBlog(currentUserId, blogId);
+      
+      if (!result) {
+        console.log("Nothing to unlike or operation failed");
+        // We'll still return success even if nothing was unliked
+      }
       
       const likeCount = await storage.getLikeCount(blogId);
+      console.log("Updated like count:", { blogId, likeCount });
       
       res.json({ success: true, likeCount });
     } catch (error) {
@@ -690,16 +741,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/blogs/:id/bookmark", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
+      console.log("Bookmark request for blog:", blogId);
+      
+      // Validate blogId format
+      if (!blogId || blogId.length !== 24) {
+        console.error("Invalid blog ID format for bookmark:", blogId);
+        return res.status(400).json({ message: "Invalid blog ID format" });
+      }
+      
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
+        console.error("Blog not found for bookmark:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      const currentUserId = req.user._id.toString();
-      await storage.bookmarkBlog(currentUserId, blogId);
+      // Ensure we have a proper MongoDB ID for the user
+      const currentUserId = req.user._id?.toString();
+      if (!currentUserId || currentUserId.length !== 24) {
+        console.error("Invalid user ID for bookmark:", currentUserId);
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
       
-      res.json({ success: true });
+      console.log("Adding bookmark:", { userId: currentUserId, blogId });
+      const result = await storage.bookmarkBlog(currentUserId, blogId);
+      
+      console.log("Bookmark result:", result);
+      res.json({ success: result });
     } catch (error) {
       console.error("Error bookmarking blog:", error);
       res.status(500).json({ message: "Failed to bookmark blog" });
@@ -709,16 +777,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/blogs/:id/bookmark", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
+      console.log("Unbookmark request for blog:", blogId);
+      
+      // Validate blogId format
+      if (!blogId || blogId.length !== 24) {
+        console.error("Invalid blog ID format for unbookmark:", blogId);
+        return res.status(400).json({ message: "Invalid blog ID format" });
+      }
+      
       const blog = await storage.getBlog(blogId);
       
       if (!blog) {
+        console.error("Blog not found for unbookmark:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      const currentUserId = req.user._id.toString();
-      await storage.unbookmarkBlog(currentUserId, blogId);
+      // Ensure we have a proper MongoDB ID for the user
+      const currentUserId = req.user._id?.toString();
+      if (!currentUserId || currentUserId.length !== 24) {
+        console.error("Invalid user ID for unbookmark:", currentUserId);
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
       
-      res.json({ success: true });
+      console.log("Removing bookmark:", { userId: currentUserId, blogId });
+      const result = await storage.unbookmarkBlog(currentUserId, blogId);
+      
+      console.log("Unbookmark result:", result);
+      res.json({ success: result });
     } catch (error) {
       console.error("Error removing bookmark:", error);
       res.status(500).json({ message: "Failed to remove bookmark" });
