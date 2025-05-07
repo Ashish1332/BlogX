@@ -16,8 +16,10 @@ import {
   X,
   MessageSquareText,
   Link as LinkIcon,
-  Users
+  Users,
+  MessageCircle
 } from "lucide-react";
+import { ShareButton } from "@/components/ui/share-button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";

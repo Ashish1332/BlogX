@@ -13,7 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ShareMessageButton } from "@/components/ui/share-message-button";
+import { ShareButton } from "@/components/ui/share-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -302,9 +302,9 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
               </div>
             </button>
             {/* Share via DM Button */}
-            <ShareMessageButton
+            <ShareButton
               blogId={blogId}
-              blogTitle={blog.title}
+              blogTitle={blog.title || ""}
             />
             {/* Like Button */}
             <button 
