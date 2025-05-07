@@ -483,12 +483,21 @@ export class DatabaseStorage implements IStorage {
   // Like methods
   async likeBlog(userId: string, blogId: string): Promise<boolean> {
     try {
+      console.log("likeBlog called with:", { userId, blogId });
+      
+      // Validate IDs before proceeding
+      if (!userId || !blogId || userId.length !== 24 || blogId.length !== 24) {
+        console.error("Invalid user or blog ID provided for liking:", { userId, blogId });
+        return false;
+      }
+      
       const existingLike = await Like.findOne({
         user: userId,
         blog: blogId
       });
       
       if (existingLike) {
+        console.log("Blog already liked:", existingLike);
         return true; // Already liked
       }
       
@@ -497,7 +506,8 @@ export class DatabaseStorage implements IStorage {
         blog: blogId
       });
       
-      await newLike.save();
+      const savedLike = await newLike.save();
+      console.log("New like saved:", savedLike);
       return true;
     } catch (error) {
       console.error("Error liking blog:", error);
@@ -507,10 +517,35 @@ export class DatabaseStorage implements IStorage {
   
   async unlikeBlog(userId: string, blogId: string): Promise<boolean> {
     try {
+      console.log("unlikeBlog called with:", { userId, blogId });
+      
+      // Validate IDs before proceeding
+      if (!userId || !blogId || userId.length !== 24 || blogId.length !== 24) {
+        console.error("Invalid user or blog ID provided for unliking:", { userId, blogId });
+        return false;
+      }
+      
+      // Check if the like exists before deleting
+      const existingLike = await Like.findOne({
+        user: userId,
+        blog: blogId
+      });
+      
+      if (!existingLike) {
+        console.log("No like found to unlike:", { userId, blogId });
+        return false; // Nothing to unlike
+      }
+      
       const result = await Like.deleteOne({
         user: userId,
         blog: blogId
       });
+      
+      console.log("Unlike result:", {
+        acknowledged: result.acknowledged,
+        deletedCount: result.deletedCount
+      });
+      
       return result.deletedCount > 0;
     } catch (error) {
       console.error("Error unliking blog:", error);
@@ -520,10 +555,24 @@ export class DatabaseStorage implements IStorage {
   
   async isLikedByUser(userId: string, blogId: string): Promise<boolean> {
     try {
+      console.log("isLikedByUser check:", { userId, blogId });
+      
+      // Validate IDs before proceeding
+      if (!userId || !blogId || userId.length !== 24 || blogId.length !== 24) {
+        console.error("Invalid user or blog ID provided for like check:", { userId, blogId });
+        return false;
+      }
+      
       const like = await Like.findOne({
         user: userId,
         blog: blogId
       });
+      
+      console.log("isLikedByUser result:", { 
+        liked: !!like, 
+        likeData: like 
+      });
+      
       return !!like;
     } catch (error) {
       console.error("Error checking if blog is liked by user:", error);
@@ -582,12 +631,21 @@ export class DatabaseStorage implements IStorage {
   // Bookmark methods
   async bookmarkBlog(userId: string, blogId: string): Promise<boolean> {
     try {
+      console.log("bookmarkBlog called with:", { userId, blogId });
+      
+      // Validate IDs before proceeding
+      if (!userId || !blogId || userId.length !== 24 || blogId.length !== 24) {
+        console.error("Invalid user or blog ID provided for bookmarking:", { userId, blogId });
+        return false;
+      }
+      
       const existingBookmark = await Bookmark.findOne({
         user: userId,
         blog: blogId
       });
       
       if (existingBookmark) {
+        console.log("Blog already bookmarked:", existingBookmark);
         return true; // Already bookmarked
       }
       
@@ -596,7 +654,9 @@ export class DatabaseStorage implements IStorage {
         blog: blogId
       });
       
-      await newBookmark.save();
+      const savedBookmark = await newBookmark.save();
+      console.log("New bookmark saved:", savedBookmark);
+      
       return true;
     } catch (error) {
       console.error("Error bookmarking blog:", error);
@@ -606,10 +666,35 @@ export class DatabaseStorage implements IStorage {
   
   async unbookmarkBlog(userId: string, blogId: string): Promise<boolean> {
     try {
+      console.log("unbookmarkBlog called with:", { userId, blogId });
+      
+      // Validate IDs before proceeding
+      if (!userId || !blogId || userId.length !== 24 || blogId.length !== 24) {
+        console.error("Invalid user or blog ID provided for unbookmarking:", { userId, blogId });
+        return false;
+      }
+      
+      // Check if the bookmark exists before deleting
+      const existingBookmark = await Bookmark.findOne({
+        user: userId,
+        blog: blogId
+      });
+      
+      if (!existingBookmark) {
+        console.log("No bookmark found to remove:", { userId, blogId });
+        return false; // Nothing to remove
+      }
+      
       const result = await Bookmark.deleteOne({
         user: userId,
         blog: blogId
       });
+      
+      console.log("Unbookmark result:", {
+        acknowledged: result.acknowledged,
+        deletedCount: result.deletedCount
+      });
+      
       return result.deletedCount > 0;
     } catch (error) {
       console.error("Error unbookmarking blog:", error);
@@ -619,10 +704,24 @@ export class DatabaseStorage implements IStorage {
   
   async isBookmarkedByUser(userId: string, blogId: string): Promise<boolean> {
     try {
+      console.log("isBookmarkedByUser check:", { userId, blogId });
+      
+      // Validate IDs before proceeding
+      if (!userId || !blogId || userId.length !== 24 || blogId.length !== 24) {
+        console.error("Invalid user or blog ID provided for bookmark check:", { userId, blogId });
+        return false;
+      }
+      
       const bookmark = await Bookmark.findOne({
         user: userId,
         blog: blogId
       });
+      
+      console.log("isBookmarkedByUser result:", { 
+        bookmarked: !!bookmark, 
+        bookmarkData: bookmark 
+      });
+      
       return !!bookmark;
     } catch (error) {
       console.error("Error checking if blog is bookmarked by user:", error);
