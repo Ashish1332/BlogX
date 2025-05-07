@@ -55,7 +55,7 @@ export default function BlogDetailPage() {
     setIsClient(true);
   }, []);
 
-  // Fetch blog
+  // Fetch blog with refetching on window focus
   const { 
     data: blog, 
     isLoading: isBlogLoading, 
@@ -64,9 +64,11 @@ export default function BlogDetailPage() {
   } = useQuery({
     queryKey: [`/api/blogs/${id}`],
     enabled: !!id,
+    refetchOnWindowFocus: true,
+    staleTime: 0 // Always refetch for latest data
   });
 
-  // Fetch comments
+  // Fetch comments with refetching on window focus
   const { 
     data: comments, 
     isLoading: isCommentsLoading, 
@@ -75,6 +77,9 @@ export default function BlogDetailPage() {
   } = useQuery({
     queryKey: [`/api/blogs/${id}/comments`],
     enabled: !!id,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0 // Always refetch for latest data
   });
 
   // Like mutation
@@ -95,6 +100,12 @@ export default function BlogDetailPage() {
         likeCount: data.likeCount,
         isLiked: !blog?.isLiked,
       });
+      
+      // Invalidate queries to ensure consistent state across the app
+      queryClient.invalidateQueries({ queryKey: [`/api/blogs/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${blog.author?.id}/blogs`] });
     },
     onError: (error) => {
       toast({
@@ -128,8 +139,12 @@ export default function BlogDetailPage() {
           description: "Blog has been added to your bookmarks",
         });
       }
-      // Invalidate bookmarks query if we're on the bookmarks page
+      
+      // Invalidate all related queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/blogs/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] });
     },
     onError: (error) => {
       toast({
@@ -183,13 +198,20 @@ export default function BlogDetailPage() {
     onSuccess: () => {
       setComment("");
       refetchComments();
-      // Update comment count in blog data
+      // Update comment count in blog data locally
       if (blog) {
         queryClient.setQueryData([`/api/blogs/${id}`], {
           ...blog,
           commentCount: blog.commentCount + 1,
         });
       }
+      
+      // Invalidate all related queries to ensure consistency across app
+      queryClient.invalidateQueries({ queryKey: [`/api/blogs/${id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/blogs/${id}/comments`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${blog?.author?.id}/blogs`] });
     },
     onError: (error) => {
       toast({
@@ -207,13 +229,19 @@ export default function BlogDetailPage() {
     },
     onSuccess: () => {
       refetchComments();
-      // Update comment count in blog data
+      // Update comment count in blog data locally
       if (blog) {
         queryClient.setQueryData([`/api/blogs/${id}`], {
           ...blog,
           commentCount: blog.commentCount - 1,
         });
       }
+      
+      // Invalidate all related queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: [`/api/blogs/${id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/blogs/${id}/comments`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] });
     },
     onError: (error) => {
       toast({

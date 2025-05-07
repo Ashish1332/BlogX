@@ -19,6 +19,9 @@ export default function HomePage() {
       return res.json();
     },
     enabled: activeTab === "for-you",
+    refetchOnWindowFocus: true,
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // 1 minute
   });
 
   const followingQuery = useQuery({
@@ -30,6 +33,9 @@ export default function HomePage() {
       return res.json();
     },
     enabled: activeTab === "following",
+    refetchOnWindowFocus: true,
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // 1 minute
   });
 
   const currentQuery = activeTab === "for-you" ? forYouQuery : followingQuery;
