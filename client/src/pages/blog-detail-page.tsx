@@ -11,13 +11,29 @@ import {
   Bookmark, 
   MoreHorizontal,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Search,
+  X,
+  MessageSquareText,
+  Link as LinkIcon,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -421,15 +437,141 @@ export default function BlogDetailPage() {
                 <MessageSquare size={20} />
               </div>
             </button>
-            <button 
-              className="flex items-center gap-1 hover:text-green-500 group"
-              onClick={handleShare}
-              aria-label="Share"
-            >
-              <div className="p-2 rounded-full group-hover:bg-green-500/10">
-                <Share2 size={20} />
-              </div>
-            </button>
+            
+            {/* Share Button with Dialog */}
+            <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+              <DialogTrigger asChild>
+                <button 
+                  className="flex items-center gap-1 hover:text-green-500 group"
+                  aria-label="Share"
+                >
+                  <div className="p-2 rounded-full group-hover:bg-green-500/10">
+                    <Share2 size={20} />
+                  </div>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Share Blog Post</DialogTitle>
+                  <DialogDescription>
+                    Share this blog post with your friends or copy the link
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="flex flex-col gap-4 py-4">
+                  {/* Copy Link Option */}
+                  <div 
+                    className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-secondary"
+                    onClick={handleShare}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 p-2 rounded-full">
+                        <LinkIcon size={20} className="text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Copy Link</h4>
+                        <p className="text-sm text-muted-foreground">Share via clipboard</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Direct Message Option */}
+                  <div className="border rounded-md p-3">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-primary/10 p-2 rounded-full">
+                        <MessageSquareText size={20} className="text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Send as Message</h4>
+                        <p className="text-sm text-muted-foreground">Share with specific people</p>
+                      </div>
+                    </div>
+                    
+                    {/* Message Input */}
+                    <Textarea
+                      placeholder="Add a message (optional)"
+                      value={shareMessage}
+                      onChange={(e) => setShareMessage(e.target.value)}
+                      className="mb-3"
+                    />
+                    
+                    {/* Search Users */}
+                    <div className="relative mb-3">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search followers"
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-2 top-2.5"
+                        >
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* User List */}
+                    <div className="max-h-60 overflow-y-auto pr-1">
+                      {isFollowersLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : !filteredFollowers || filteredFollowers.length === 0 ? (
+                        <div className="text-center py-4">
+                          <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground text-sm">
+                            {searchTerm 
+                              ? "No matching followers found" 
+                              : "You don't have any followers yet"}
+                          </p>
+                        </div>
+                      ) : (
+                        filteredFollowers.map((follower: any) => (
+                          <div 
+                            key={follower._id} 
+                            className="flex items-center justify-between p-2 rounded-md hover:bg-secondary cursor-pointer"
+                            onClick={() => handleShareViaMessage(follower._id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={follower.profileImage || "https://via.placeholder.com/40"} 
+                                alt={follower.displayName} 
+                                className="w-8 h-8 rounded-full object-cover" 
+                              />
+                              <div>
+                                <p className="font-medium">{follower.displayName}</p>
+                                <p className="text-xs text-muted-foreground">@{follower.username}</p>
+                              </div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              className="h-8"
+                              disabled={shareMutation.isPending}
+                            >
+                              Share
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <DialogFooter className="sm:justify-start">
+                  <DialogClose asChild>
+                    <Button type="button" variant="secondary">
+                      Close
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
             <button 
               className={`flex items-center gap-1 group ${blog.isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}
               onClick={() => likeMutation.mutate()}
