@@ -253,20 +253,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
       
+      console.log(`Fetching blogs with limit: ${limit}, offset: ${offset}`);
       const blogs = await storage.getBlogs(limit, offset);
+      console.log(`Got ${blogs.length} blogs from database`);
       
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(blogs.map(async (blog) => {
-        const likeCount = await storage.getLikeCount(blog.id);
-        const comments = await storage.getComments(blog.id);
+        // Use MongoDB _id if available, otherwise fallback to id
+        const blogId = blog._id ? blog._id.toString() : blog.id;
+        
+        if (!blogId) {
+          console.error(`Blog has no valid ID:`, blog);
+          return {
+            ...blog,
+            likeCount: 0,
+            commentCount: 0,
+            isLiked: false,
+            isBookmarked: false
+          };
+        }
+        
+        console.log(`Processing blog: ${blogId}, title: ${blog.title?.substring(0, 30)}`);
+        
+        const likeCount = await storage.getLikeCount(blogId);
+        const comments = await storage.getComments(blogId);
         
         // If user is authenticated, check if they liked or bookmarked the blog
         let isLiked = false;
         let isBookmarked = false;
         
-        if (req.isAuthenticated()) {
-          isLiked = await storage.isLikedByUser(req.user.id, blog.id);
-          isBookmarked = await storage.isBookmarkedByUser(req.user.id, blog.id);
+        if (req.isAuthenticated() && req.user?._id) {
+          const userId = req.user._id.toString();
+          console.log(`Checking user ${userId} interactions with blog ${blogId}`);
+          
+          isLiked = await storage.isLikedByUser(userId, blogId);
+          isBookmarked = await storage.isBookmarkedByUser(userId, blogId);
+          
+          console.log(`Blog ${blogId} interactions: isLiked=${isLiked}, isBookmarked=${isBookmarked}`);
         }
         
         return {
