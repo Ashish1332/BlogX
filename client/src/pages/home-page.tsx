@@ -47,13 +47,13 @@ export default function HomePage() {
     setPage(prev => prev + 1);
   };
 
-  const handleDeleteBlog = (blogId: number) => {
+  const handleDeleteBlog = (blogId: string) => {
     // Filter out the deleted blog from the UI
     if (activeTab === "for-you" && forYouQuery.data) {
-      const updatedBlogs = forYouQuery.data.filter((blog: any) => blog.id !== blogId);
+      const updatedBlogs = forYouQuery.data.filter((blog: any) => (blog._id || blog.id) !== blogId);
       forYouQuery.updateData(old => updatedBlogs);
     } else if (activeTab === "following" && followingQuery.data) {
-      const updatedBlogs = followingQuery.data.filter((blog: any) => blog.id !== blogId);
+      const updatedBlogs = followingQuery.data.filter((blog: any) => (blog._id || blog.id) !== blogId);
       followingQuery.updateData(old => updatedBlogs);
     }
   };

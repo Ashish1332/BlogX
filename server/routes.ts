@@ -845,31 +845,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/comments/:id", isAuthenticated, async (req, res) => {
     try {
       const commentId = req.params.id;
+      console.log("Deleting comment with ID:", commentId);
       
       // Check if comment exists and belongs to user
       const comments = await storage.getComments(0); // This is inefficient but works for now
-      const comment = comments.find(c => 
-        (c._id && c._id.toString() === commentId) || 
-        (c.id && c.id.toString() === commentId)
-      );
+      console.log(`Found ${comments.length} comments total`);
+      
+      const comment = comments.find(c => {
+        const commentIdStr = c._id?.toString() || c.id?.toString();
+        const match = commentIdStr === commentId;
+        if (match) {
+          console.log("Found matching comment:", {
+            commentId,
+            commentInDb: commentIdStr,
+            userId: c.user?._id || c.userId,
+            content: c.content.substring(0, 30) + (c.content.length > 30 ? '...' : '')
+          });
+        }
+        return match;
+      });
       
       if (!comment) {
+        console.log(`No comment found with ID: ${commentId}`);
         return res.status(404).json({ message: "Comment not found" });
       }
       
-      const currentUserId = req.user._id.toString();
+      const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
+      console.log("Current user ID:", currentUserId);
+      
       const commentUserId = comment.user?._id?.toString() || comment.userId?.toString();
+      console.log("Comment user ID:", commentUserId);
       
       if (commentUserId !== currentUserId) {
+        console.log("User not authorized - Comment belongs to:", commentUserId);
         return res.status(403).json({ message: "Not authorized to delete this comment" });
       }
       
-      await storage.deleteComment(commentId);
+      const result = await storage.deleteComment(commentId);
+      console.log("Delete comment result:", result);
       
       res.status(204).end();
     } catch (error) {
       console.error("Error deleting comment:", error);
-      res.status(500).json({ message: "Failed to delete comment" });
+      res.status(500).json({ message: "Failed to delete comment", error: error instanceof Error ? error.message : String(error) });
     }
   });
   

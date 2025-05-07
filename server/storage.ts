@@ -590,11 +590,42 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Comment methods
-  async getComments(blogId: string): Promise<any[]> {
+  async getComments(blogId: string | number): Promise<any[]> {
     try {
+      console.log(`Fetching comments for blog ID: ${blogId}`);
+      
+      // Handle case where blogId is 0 (used for fetching all comments)
+      if (blogId === 0 || blogId === "0") {
+        console.log("Fetching all comments (blogId=0)");
+        const comments = await Comment.find()
+          .populate('user')
+          .sort({ createdAt: -1 });
+          
+        console.log(`Found ${comments.length} total comments`);
+        return comments.map(comment => comment.toObject());
+      }
+      
+      // Validate the blog ID format for MongoDB
+      if (typeof blogId === 'string' && blogId.length !== 24) {
+        console.error(`Invalid blog ID format for getComments: ${blogId}`);
+        return [];
+      }
+      
       const comments = await Comment.find({ blog: blogId })
         .populate('user')
         .sort({ createdAt: 1 });
+        
+      console.log(`Found ${comments.length} comments for blog ${blogId}`);
+      
+      // Add some debug info for a few comments
+      if (comments.length > 0) {
+        console.log("Sample comments:", comments.slice(0, 2).map(c => ({
+          id: c._id?.toString(),
+          userId: c.user?._id?.toString() || c.userId?.toString(),
+          content: c.content.substring(0, 30) + (c.content.length > 30 ? '...' : '')
+        })));
+      }
+      
       return comments.map(comment => comment.toObject());
     } catch (error) {
       console.error("Error getting comments:", error);
@@ -620,7 +651,35 @@ export class DatabaseStorage implements IStorage {
   
   async deleteComment(id: string): Promise<boolean> {
     try {
+      console.log(`Attempting to delete comment with ID: ${id}`);
+      
+      // Validate the ID format
+      if (!id || id.length !== 24) {
+        console.error(`Invalid comment ID format: ${id}`);
+        return false;
+      }
+      
+      // First check if the comment exists
+      const comment = await Comment.findById(id);
+      if (!comment) {
+        console.log(`No comment found with ID: ${id}`);
+        return false;
+      }
+      
+      console.log(`Found comment to delete:`, {
+        id,
+        userId: comment.user,
+        blogId: comment.blog,
+        content: comment.content.substring(0, 30) + (comment.content.length > 30 ? '...' : '')
+      });
+      
       const result = await Comment.deleteOne({ _id: id });
+      
+      console.log(`Delete comment result:`, {
+        acknowledged: result.acknowledged,
+        deletedCount: result.deletedCount
+      });
+      
       return result.deletedCount > 0;
     } catch (error) {
       console.error("Error deleting comment:", error);
