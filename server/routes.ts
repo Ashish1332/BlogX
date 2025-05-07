@@ -418,11 +418,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/blogs", isAuthenticated, async (req, res) => {
     try {
+      console.log("Creating blog with authenticated user:", req.user);
       const validatedData = insertBlogSchema.parse(req.body);
       
       const blog = await storage.createBlog({
         ...validatedData,
-        authorId: req.user.id
+        authorId: req.user._id.toString() // Use _id instead of id for MongoDB
       });
       
       // Broadcast to followers using MongoDB _id
@@ -455,7 +456,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Blog not found" });
       }
       
-      if (blog.authorId !== req.user.id) {
+      // Compare with author's MongoDB _id
+      const authorId = blog.author?._id?.toString();
+      const currentUserId = req.user._id.toString();
+      
+      if (authorId !== currentUserId) {
         return res.status(403).json({ message: "Not authorized to update this blog" });
       }
       
