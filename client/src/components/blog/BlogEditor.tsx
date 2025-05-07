@@ -1,23 +1,25 @@
-import { useState, useEffect } from "react";
-import { X, Image, Film, Link as LinkIcon, BarChart2, Smile, Calendar } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, Image, Upload, Link as LinkIcon, Heading, Type, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Globe } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface BlogEditorProps {
   isOpen: boolean;
   onClose: () => void;
   initialContent?: string;
   editMode?: boolean;
-  blogId?: number;
+  blogId?: string;
 }
 
 const blogSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title is too long"),
-  content: z.string().min(1, "Content is required")
+  content: z.string().min(1, "Content is required"),
+  image: z.string().optional()
 });
 
 export default function BlogEditor({ 
@@ -30,7 +32,11 @@ export default function BlogEditor({
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState(initialContent);
+  const [blogImage, setBlogImage] = useState<string | null>(null);
   const [draft, setDraft] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("write");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen && editMode && blogId) {
@@ -42,6 +48,9 @@ export default function BlogEditor({
           const blog = await response.json();
           setTitle(blog.title);
           setContent(blog.content);
+          if (blog.image) {
+            setBlogImage(blog.image);
+          }
         } catch (error) {
           toast({
             title: "Error",
@@ -67,8 +76,69 @@ export default function BlogEditor({
     onClose();
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image less than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a valid image file",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append("blogImage", file);
+      
+      const response = await fetch("/api/upload/blog-image", {
+        method: "POST",
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to upload image");
+      }
+      
+      const data = await response.json();
+      setBlogImage(data.imageUrl);
+      toast({
+        title: "Image uploaded",
+        description: "Your image has been uploaded successfully",
+      });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const publishMutation = useMutation({
-    mutationFn: async (data: { title: string; content: string }) => {
+    mutationFn: async (data: { title: string; content: string; image?: string }) => {
       if (editMode && blogId) {
         const res = await apiRequest("PUT", `/api/blogs/${blogId}`, data);
         return await res.json();
@@ -86,6 +156,7 @@ export default function BlogEditor({
       });
       setTitle("");
       setContent("");
+      setBlogImage(null);
       setDraft(false);
       onClose();
       // Invalidate queries to refresh the feed
@@ -104,9 +175,26 @@ export default function BlogEditor({
     },
   });
 
+  const handleAddHeading = () => {
+    const headingText = "## Heading";
+    const newContent = content ? `${content}\n\n${headingText}\n` : `${headingText}\n`;
+    setContent(newContent);
+  };
+
+  const handleAddParagraph = () => {
+    const paragraphText = "\nNew paragraph. Start typing here...\n";
+    setContent(content + paragraphText);
+  };
+
   const handlePublish = () => {
     try {
-      const validatedData = blogSchema.parse({ title, content });
+      const blogData = {
+        title,
+        content,
+        ...(blogImage && { image: blogImage })
+      };
+      
+      const validatedData = blogSchema.parse(blogData);
       publishMutation.mutate(validatedData);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -117,6 +205,23 @@ export default function BlogEditor({
         });
       }
     }
+  };
+
+  // Format the content for preview
+  const formatContentForPreview = () => {
+    // Basic formatting: convert line breaks to paragraphs
+    // and ## headings to h2 elements
+    if (!content) return '';
+    
+    return content
+      .split('\n\n')
+      .map(paragraph => {
+        if (paragraph.startsWith('## ')) {
+          return `<h2 class="text-xl font-bold my-3">${paragraph.substring(3)}</h2>`;
+        }
+        return `<p class="my-2">${paragraph}</p>`;
+      })
+      .join('');
   };
 
   if (!isOpen) return null;
@@ -154,39 +259,90 @@ export default function BlogEditor({
               <span className="text-sm">Everyone</span>
             </div>
           </div>
-          <div className="mb-4">
-            <textarea 
-              placeholder="What's on your mind?" 
-              className="w-full bg-transparent min-h-[200px] resize-none focus:outline-none text-lg"
-              rows={8}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-          </div>
+          
+          {/* Image upload input (hidden) */}
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])}
+          />
+          
+          {/* Image preview */}
+          {blogImage && (
+            <div className="mb-4 relative">
+              <img 
+                src={blogImage} 
+                alt="Blog image" 
+                className="w-full h-auto rounded-lg"
+              />
+              <button 
+                className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full"
+                onClick={() => setBlogImage(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
+            <TabsList className="mb-2">
+              <TabsTrigger value="write">Write</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="write" className="min-h-[200px]">
+              <textarea 
+                placeholder="What's on your mind? Use blank lines to separate paragraphs. Use ## to create headings." 
+                className="w-full bg-transparent min-h-[200px] resize-none focus:outline-none text-lg"
+                rows={8}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+            </TabsContent>
+            
+            <TabsContent value="preview" className="min-h-[200px]">
+              <div 
+                className="blog-preview prose prose-lg h-full"
+                dangerouslySetInnerHTML={{ __html: formatContentForPreview() }}
+              />
+            </TabsContent>
+          </Tabs>
+          
           <div className="flex justify-between items-center border-t border-border pt-4">
             <div className="flex gap-2 text-primary">
-              <button className="p-2 rounded-full hover:bg-primary/10">
+              <button 
+                className="p-2 rounded-full hover:bg-primary/10 relative"
+                onClick={handleImageButtonClick}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-20"></span>
+                ) : null}
                 <Image size={18} />
               </button>
-              <button className="p-2 rounded-full hover:bg-primary/10">
-                <Film size={18} />
+              <button 
+                className="p-2 rounded-full hover:bg-primary/10"
+                onClick={handleAddHeading}
+              >
+                <Heading size={18} />
               </button>
-              <button className="p-2 rounded-full hover:bg-primary/10">
-                <LinkIcon size={18} />
+              <button 
+                className="p-2 rounded-full hover:bg-primary/10"
+                onClick={handleAddParagraph}
+              >
+                <Type size={18} />
               </button>
-              <button className="p-2 rounded-full hover:bg-primary/10">
-                <BarChart2 size={18} />
-              </button>
-              <button className="p-2 rounded-full hover:bg-primary/10">
+              <button 
+                className="p-2 rounded-full hover:bg-primary/10"
+              >
                 <Smile size={18} />
-              </button>
-              <button className="p-2 rounded-full hover:bg-primary/10">
-                <Calendar size={18} />
               </button>
             </div>
             <Button
               onClick={handlePublish}
-              disabled={publishMutation.isPending}
+              disabled={publishMutation.isPending || isUploading}
             >
               {editMode ? "Update" : "Publish"}
             </Button>
