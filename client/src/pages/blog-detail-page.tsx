@@ -471,18 +471,25 @@ export default function BlogDetailPage() {
               </div>
             </button>
             
-            {/* Share Button with Dialog */}
-            <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-              <DialogTrigger asChild>
-                <button 
-                  className="flex items-center gap-1 hover:text-green-500 group"
-                  aria-label="Share"
-                >
-                  <div className="p-2 rounded-full group-hover:bg-green-500/10">
-                    <Share2 size={20} />
-                  </div>
-                </button>
-              </DialogTrigger>
+            {/* Copy Link Button */}
+            <button 
+              className="flex items-center gap-1 hover:text-green-500 group"
+              onClick={handleShare}
+              aria-label="Copy link to clipboard"
+            >
+              <div className="p-2 rounded-full group-hover:bg-green-500/10">
+                <Share2 size={20} />
+              </div>
+            </button>
+            
+            {/* Share via DM Button */}
+            <ShareButton
+              blogId={id || ""}
+              blogTitle={blog?.title || ""}
+            />
+            
+            {/* Legacy Share Dialog - to be removed once ShareButton is fully implemented */}
+            <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} hidden>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Share Blog Post</DialogTitle>
