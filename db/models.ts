@@ -17,6 +17,8 @@ export interface IBlog extends Document {
   content: string;
   image?: string;
   author: mongoose.Types.ObjectId | IUser;
+  category?: string;
+  hashtags?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,6 +89,8 @@ const BlogSchema = new Schema<IBlog>({
   content: { type: String, required: true },
   image: { type: String },
   author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  category: { type: String },
+  hashtags: { type: [String] },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -169,7 +173,9 @@ export const userInsertSchema = z.object({
 export const blogInsertSchema = z.object({
   title: z.string().min(1, "Title is required"),
   content: z.string().min(1, "Content is required"),
-  image: z.string().optional()
+  image: z.string().optional(),
+  category: z.string().optional(),
+  hashtags: z.array(z.string()).optional()
 });
 
 export const commentInsertSchema = z.object({
