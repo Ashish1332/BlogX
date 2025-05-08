@@ -857,6 +857,7 @@ export default function MessagesPage() {
                                 <div 
                                   className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px]"
                                   onClick={() => {
+                                    console.log("Clicked shared blog preview:", msg);
                                     // Open Instagram-style blog preview dialog
                                     if (msg.sharedBlog?._id) {
                                       // Always load the actual blog data from server to ensure we have the most up-to-date info
@@ -864,8 +865,12 @@ export default function MessagesPage() {
                                         _id: msg.sharedBlog._id,
                                         title: msg.sharedBlogPreview?.title || "Shared blog post",
                                         content: msg.sharedBlogPreview?.excerpt || "",
-                                        image: msg.sharedBlogPreview?.image || msg.sharedBlog?.image
+                                        image: msg.sharedBlogPreview?.image || msg.sharedBlog?.image,
+                                        category: msg.sharedBlog?.category,
+                                        hashtags: msg.sharedBlog?.hashtags
                                       };
+                                      
+                                      console.log("Opening blog preview with data:", blogData);
                                       
                                       // Set the blog data and open preview dialog
                                       setPreviewBlog(blogData);
