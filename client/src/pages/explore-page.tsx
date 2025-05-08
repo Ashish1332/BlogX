@@ -98,7 +98,18 @@ export default function ExplorePage() {
       refetchTrending();
     } else if (activeTab === "search") {
       refetchSearch();
+    } else if (activeTab === "categories") {
+      refetchCategory();
     }
+  };
+  
+  // Handle category selection
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    if (activeTab !== "categories") {
+      setActiveTab("categories");
+    }
+    refetchCategory();
   };
 
   // Don't render anything during SSR to avoid hydration mismatch with date formatting
@@ -129,10 +140,11 @@ export default function ExplorePage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "trending" | "search")}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "trending" | "search" | "categories")}>
         <TabsList className="w-full border-b border-border rounded-none">
           <TabsTrigger value="trending" className="flex-1">Trending</TabsTrigger>
-          <TabsTrigger value="search" className="flex-1" disabled={!searchQuery.trim()}>Search Results</TabsTrigger>
+          <TabsTrigger value="categories" className="flex-1">Categories</TabsTrigger>
+          <TabsTrigger value="search" className="flex-1" disabled={!searchQuery.trim()}>Search</TabsTrigger>
         </TabsList>
 
         {/* Trending Tab */}
@@ -169,6 +181,82 @@ export default function ExplorePage() {
         </TabsContent>
 
         {/* Search Results Tab */}
+        {/* Categories Tab */}
+        <TabsContent value="categories">
+          <div className="p-4">
+            <h2 className="text-lg font-bold mb-3">Browse by Category</h2>
+            <ScrollArea className="max-h-[200px] mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-1">
+                {categories.map((category) => (
+                  <Badge 
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    className="cursor-pointer px-3 py-1.5 flex items-center gap-1 justify-center"
+                    onClick={() => handleCategorySelect(category)}
+                  >
+                    <Tag size={12} />
+                    {category}
+                  </Badge>
+                ))}
+              </div>
+            </ScrollArea>
+            
+            {selectedCategory ? (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Tag size={16} className="text-primary" />
+                    {selectedCategory}
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedCategory(null)}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                
+                {isCategoryLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : isCategoryError ? (
+                  <div className="py-8 text-center">
+                    <p className="text-destructive mb-2">Failed to load blogs</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => refetchCategory()}
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                ) : categoryBlogs && categoryBlogs.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-muted-foreground">No blogs found in this category</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {categoryBlogs && categoryBlogs.map((blog: any) => (
+                      <BlogCard 
+                        key={blog._id} 
+                        blog={blog} 
+                        onDelete={() => refetchCategory()}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-muted-foreground">
+                  Select a category to browse blogs
+                </p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+        
         <TabsContent value="search">
           {isSearchLoading ? (
             <div className="flex justify-center py-8">

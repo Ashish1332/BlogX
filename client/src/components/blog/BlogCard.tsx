@@ -7,8 +7,11 @@ import {
   Share2, 
   Bookmark, 
   ExternalLink,
-  MoreHorizontal
+  MoreHorizontal,
+  Tag,
+  Hash
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -55,6 +58,8 @@ interface BlogCardProps {
     commentCount: number;
     isLiked?: boolean;
     isBookmarked?: boolean;
+    category?: string;
+    hashtags?: string[];
     author: {
       _id: string;
       id?: string; // For backward compatibility
@@ -75,7 +80,7 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
   const [bookmarked, setBookmarked] = useState(blog.isBookmarked || false);
 
   // Get the proper blog ID (MongoDB _id or fallback to .id)
-  const blogId = blog._id || blog.id;
+  const blogId: string = blog._id || blog.id || "";
   
   const likeMutation = useMutation({
     mutationFn: async () => {
@@ -281,6 +286,23 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
             </button>
           )}
           
+          {/* Category and Hashtags */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {blog.category && (
+              <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5">
+                <Tag size={12} className="text-primary" />
+                <span>{blog.category}</span>
+              </Badge>
+            )}
+            
+            {blog.hashtags && blog.hashtags.length > 0 && blog.hashtags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="flex items-center gap-1 px-2 py-0.5">
+                <Hash size={12} />
+                <span>{tag}</span>
+              </Badge>
+            ))}
+          </div>
+          
           {/* Interaction Buttons */}
           <div className="flex justify-between text-muted-foreground">
             <Link href={`/blog/${blogId}`}>
@@ -303,7 +325,7 @@ export default function BlogCard({ blog, onDelete }: BlogCardProps) {
             </button>
             {/* Share via DM Button */}
             <ShareButton
-              blogId={blogId}
+              blogId={blogId as string}
               blogTitle={blog.title || ""}
             />
             {/* Like Button */}
