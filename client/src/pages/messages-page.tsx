@@ -330,12 +330,34 @@ export default function MessagesPage() {
       webSocketService.sendTypingIndicator(id, false);
     }
 
-    // Send the message
-    sendMessageMutation.mutate({
-      receiverId: id as string,
-      content: currentMessage,
-      messageType: 'text'
-    });
+    // Detect if this is a blog share message
+    const blogLinkPattern = /Check out this blog: "([^"]+)"[^\/]*Link: \/blog\/([a-zA-Z0-9]+)/;
+    const match = currentMessage.match(blogLinkPattern);
+    
+    if (match) {
+      // This is a blog link that should be converted to a rich blog post
+      const [_, title, blogId] = match;
+      
+      // Send as a rich blog share message
+      sendMessageMutation.mutate({
+        receiverId: id as string,
+        content: currentMessage,
+        messageType: 'blog_share',
+        sharedBlogId: blogId,
+        sharedBlogPreview: {
+          title: title,
+          excerpt: "Click to view the full blog post",
+          image: undefined
+        }
+      });
+    } else {
+      // Send as a regular text message
+      sendMessageMutation.mutate({
+        receiverId: id as string,
+        content: currentMessage,
+        messageType: 'text'
+      });
+    }
   };
 
   // Fetch following list for conversation suggestions
