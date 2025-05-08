@@ -859,12 +859,12 @@ export default function MessagesPage() {
                                   onClick={() => {
                                     // Open Instagram-style blog preview dialog
                                     if (msg.sharedBlog?._id) {
-                                      // First try to load the blog data if not already included
-                                      const blogData = msg.sharedBlog.title ? msg.sharedBlog : {
+                                      // Always load the actual blog data from server to ensure we have the most up-to-date info
+                                      const blogData = {
                                         _id: msg.sharedBlog._id,
                                         title: msg.sharedBlogPreview?.title || "Shared blog post",
                                         content: msg.sharedBlogPreview?.excerpt || "",
-                                        image: msg.sharedBlogPreview?.image
+                                        image: msg.sharedBlogPreview?.image || msg.sharedBlog?.image
                                       };
                                       
                                       // Set the blog data and open preview dialog
@@ -1282,7 +1282,8 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
   
   // Fetch full blog data if we only have ID
   useEffect(() => {
-    if (isOpen && blog?._id && !blog.content) {
+    if (isOpen && blog?._id) {
+      // Always fetch full blog data to ensure we have the latest
       setLoading(true);
       
       fetch(`/api/blogs/${blog._id}`)
@@ -1293,6 +1294,7 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
           return res.json();
         })
         .then(data => {
+          console.log("Loaded blog data:", data);
           setFullBlogData(data);
           setLoading(false);
         })
