@@ -906,15 +906,83 @@ export default function MessagesPage() {
                               </div>
                             ) : (
                               <>
-                                {/* Regular text message */}
-                                <p className="whitespace-pre-wrap break-words">
-                                  {msg.content}
-                                </p>
-                                <p className="text-xs opacity-70 mt-1 text-right">
-                                  {formatDistanceToNow(new Date(msg.createdAt), {
-                                    addSuffix: true,
-                                  })}
-                                </p>
+                                {/* Detect blog links in text messages and render them as blog previews */}
+                                {msg.content && msg.content.includes('Link: /blog/') ? (
+                                  <div className="flex flex-col">
+                                    {/* Extract blog ID and title from content */}
+                                    {(() => {
+                                      const blogIdMatch = msg.content.match(/\/blog\/([a-zA-Z0-9]+)/);
+                                      const titleMatch = msg.content.match(/"([^"]+)"/);
+                                      
+                                      const blogId = blogIdMatch ? blogIdMatch[1] : null;
+                                      const blogTitle = titleMatch ? titleMatch[1] : "Shared blog post";
+                                      
+                                      if (blogId) {
+                                        // Create mock blog data for the preview
+                                        const blogData = {
+                                          _id: blogId,
+                                          title: blogTitle,
+                                          content: "Click to view the full blog post"
+                                        };
+                                        
+                                        return (
+                                          <>
+                                            {/* Instagram-style shared blog preview */}
+                                            <div 
+                                              className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px]"
+                                              onClick={() => {
+                                                // Set the blog data and open preview dialog
+                                                setPreviewBlog(blogData);
+                                                setShowBlogPreview(true);
+                                              }}
+                                            >
+                                              <div className="w-full h-20 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
+                                                <FileText className="w-10 h-10 text-primary/50" />
+                                              </div>
+                                              
+                                              {/* Blog preview content area */}
+                                              <div className="p-3">
+                                                <h4 className="font-semibold text-sm mb-1 line-clamp-2">
+                                                  {blogTitle}
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground mb-2 line-clamp-3">
+                                                  Click to view the full blog post
+                                                </p>
+                                                <div className="flex items-center justify-between mt-2">
+                                                  <span className="text-xs font-medium text-primary flex items-center gap-1">
+                                                    <MessageSquare className="w-3 h-3" /> View post
+                                                  </span>
+                                                  <div className="text-xs text-muted-foreground">
+                                                    blogx.com
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <p className="text-xs opacity-70 mt-1 text-right">
+                                              {formatDistanceToNow(new Date(msg.createdAt), {
+                                                addSuffix: true,
+                                              })}
+                                            </p>
+                                          </>
+                                        );
+                                      }
+                                      
+                                      return null;
+                                    })()}
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* Regular text message */}
+                                    <p className="whitespace-pre-wrap break-words">
+                                      {msg.content}
+                                    </p>
+                                    <p className="text-xs opacity-70 mt-1 text-right">
+                                      {formatDistanceToNow(new Date(msg.createdAt), {
+                                        addSuffix: true,
+                                      })}
+                                    </p>
+                                  </>
+                                )}
                               </>
                             )}
                             
@@ -1181,6 +1249,69 @@ export default function MessagesPage() {
   );
 }
 
+// Instagram-style Blog Preview Dialog
+function BlogPreviewDialog({ blog, isOpen, onClose }: { 
+  blog: any; 
+  isOpen: boolean; 
+  onClose: () => void 
+}) {
+  if (!blog || !isOpen) return null;
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[650px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="text-xl">{blog.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          {/* Blog image */}
+          <div className="w-full overflow-hidden rounded-md">
+            {blog.image ? (
+              <img 
+                src={blog.image} 
+                alt={blog.title} 
+                className="w-full h-64 object-cover"
+              />
+            ) : (
+              <div className="w-full h-64 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
+                <FileText className="w-16 h-16 text-primary/60" />
+              </div>
+            )}
+          </div>
+          
+          {/* Blog content */}
+          <div className="flex flex-col h-64 overflow-y-auto">
+            <div className="prose prose-sm dark:prose-invert">
+              <h3 className="text-xl font-bold mb-2">{blog.title}</h3>
+              
+              <div className="whitespace-pre-wrap">
+                {blog.content}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Action buttons */}
+        <div className="flex justify-between items-center mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          
+          <Button onClick={() => {
+            // Navigate to the full blog page
+            window.location.href = `/blog/${blog._id}`;
+          }}>
+            View Full Blog
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Define type for user status data
 interface UserStatus {
   isOnline: boolean;
@@ -1324,69 +1455,6 @@ function BlogShareCard({ blog, onSelect }: BlogShareCardProps) {
   };
 
   const excerpt = generateExcerpt(blog.content);
-  
-// Instagram-style Blog Preview Dialog
-function BlogPreviewDialog({ blog, isOpen, onClose }: { 
-  blog: any; 
-  isOpen: boolean; 
-  onClose: () => void 
-}) {
-  if (!blog || !isOpen) return null;
-  
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[650px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span className="text-xl">{blog.title}</span>
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {/* Blog image */}
-          <div className="w-full overflow-hidden rounded-md">
-            {blog.image ? (
-              <img 
-                src={blog.image} 
-                alt={blog.title} 
-                className="w-full h-64 object-cover"
-              />
-            ) : (
-              <div className="w-full h-64 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
-                <FileText className="w-16 h-16 text-primary/60" />
-              </div>
-            )}
-          </div>
-          
-          {/* Blog content */}
-          <div className="flex flex-col h-64 overflow-y-auto">
-            <div className="prose prose-sm dark:prose-invert">
-              <h3 className="text-xl font-bold mb-2">{blog.title}</h3>
-              
-              <div className="whitespace-pre-wrap">
-                {blog.content}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Action buttons */}
-        <div className="flex justify-between items-center mt-4">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-          
-          <Button onClick={() => {
-            // Navigate to the full blog page
-            window.location.href = `/blog/${blog._id}`;
-          }}>
-            View Full Blog
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
   return (
     <div 
