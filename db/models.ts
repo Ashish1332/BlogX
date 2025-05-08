@@ -62,6 +62,13 @@ export interface IMessage extends Document {
   content: string;
   read: boolean;
   createdAt: Date;
+  messageType?: string; // 'text' or 'blog_share'
+  sharedBlog?: mongoose.Types.ObjectId | IBlog;
+  sharedBlogPreview?: {
+    title: string;
+    excerpt: string;
+    image?: string;
+  };
 }
 
 // Create schemas
@@ -124,7 +131,14 @@ const MessageSchema = new Schema<IMessage>({
   receiver: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   content: { type: String, required: true },
   read: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  messageType: { type: String, enum: ['text', 'blog_share'], default: 'text' },
+  sharedBlog: { type: Schema.Types.ObjectId, ref: 'Blog' },
+  sharedBlogPreview: {
+    title: { type: String },
+    excerpt: { type: String },
+    image: { type: String }
+  }
 });
 
 // Set unique compound indexes
@@ -163,7 +177,14 @@ export const commentInsertSchema = z.object({
 });
 
 export const messageInsertSchema = z.object({
-  content: z.string().min(1, "Message cannot be empty")
+  content: z.string().min(1, "Message cannot be empty"),
+  messageType: z.enum(['text', 'blog_share']).optional().default('text'),
+  sharedBlogId: z.string().optional(),
+  sharedBlogPreview: z.object({
+    title: z.string(),
+    excerpt: z.string(),
+    image: z.string().optional()
+  }).optional()
 });
 
 // Type definitions for the zod schemas

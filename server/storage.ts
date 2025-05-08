@@ -909,15 +909,56 @@ export class DatabaseStorage implements IStorage {
   
   async sendMessage(message: any): Promise<any> {
     try {
-      const newMessage = new Message({
+      const messageData: any = {
         sender: message.senderId,
         receiver: message.receiverId,
         content: message.content,
         read: false
-      });
+      };
+
+      // If it's a blog share message, add the necessary fields
+      if (message.messageType === 'blog_share' && message.sharedBlogId) {
+        messageData.messageType = 'blog_share';
+        messageData.sharedBlog = message.sharedBlogId;
+        
+        // Add shared blog preview if provided
+        if (message.sharedBlogPreview) {
+          messageData.sharedBlogPreview = {
+            title: message.sharedBlogPreview.title,
+            excerpt: message.sharedBlogPreview.excerpt,
+            image: message.sharedBlogPreview.image
+          };
+        } else {
+          // If no preview was provided but we have a blog ID, fetch blog details to create a preview
+          try {
+            const blog = await Blog.findById(message.sharedBlogId);
+            if (blog) {
+              const excerpt = blog.content.length > 100 
+                ? blog.content.substring(0, 100) + '...' 
+                : blog.content;
+              
+              messageData.sharedBlogPreview = {
+                title: blog.title,
+                excerpt: excerpt,
+                image: blog.image
+              };
+            }
+          } catch (err) {
+            console.error('Error fetching blog for preview:', err);
+          }
+        }
+      }
       
+      const newMessage = new Message(messageData);
       await newMessage.save();
-      return newMessage.toObject();
+      
+      // Populate the message with sender and receiver information
+      const populatedMessage = await Message.findById(newMessage._id)
+        .populate('sender', 'username displayName profileImage')
+        .populate('receiver', 'username displayName profileImage')
+        .populate('sharedBlog', 'title content image');
+      
+      return populatedMessage.toObject();
     } catch (error) {
       console.error("Error sending message:", error);
       throw error;
