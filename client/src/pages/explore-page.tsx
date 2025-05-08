@@ -2,17 +2,39 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
 import BlogCard from "@/components/blog/BlogCard";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, Tag, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "wouter";
 import { User } from "@shared/schema";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"trending" | "search">("trending");
+  const [activeTab, setActiveTab] = useState<"trending" | "search" | "categories">("trending");
   const [isClient, setIsClient] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  // Available blog categories - should match the ones in BlogEditor
+  const categories = [
+    "Technology",
+    "Environment",
+    "Science",
+    "Bollywood",
+    "Space",
+    "Information Technology",
+    "Health",
+    "Travel",
+    "Food",
+    "Fashion",
+    "Sports",
+    "Entertainment",
+    "Politics",
+    "Business",
+    "Education"
+  ];
 
   useEffect(() => {
     setIsClient(true);
@@ -44,6 +66,23 @@ export default function ExplorePage() {
       return res.json();
     },
     enabled: !!searchQuery.trim() && activeTab === "search",
+  });
+  
+  // Category filtered blogs
+  const {
+    data: categoryBlogs,
+    isLoading: isCategoryLoading,
+    isError: isCategoryError,
+    refetch: refetchCategory
+  } = useQuery({
+    queryKey: ["/api/blogs/category", selectedCategory],
+    queryFn: async () => {
+      if (!selectedCategory) return [];
+      const res = await fetch(`/api/blogs?category=${encodeURIComponent(selectedCategory)}`);
+      if (!res.ok) throw new Error("Failed to fetch blogs for category");
+      return res.json();
+    },
+    enabled: activeTab === "categories" && !!selectedCategory,
   });
 
   const handleSearch = (e: React.FormEvent) => {

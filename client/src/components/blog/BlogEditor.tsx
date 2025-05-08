@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { X, Image, Upload, Link as LinkIcon, Heading, Type, Smile } from "lucide-react";
+import { useState, useEffect, useRef, KeyboardEvent } from "react";
+import { X, Image, Upload, Link as LinkIcon, Heading, Type, Smile, Hash, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -7,6 +7,15 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Globe } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 interface BlogEditorProps {
   isOpen: boolean;
@@ -19,7 +28,9 @@ interface BlogEditorProps {
 const blogSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title is too long"),
   content: z.string().min(1, "Content is required"),
-  image: z.string().optional()
+  image: z.string().optional(),
+  category: z.string().optional(),
+  hashtags: z.array(z.string()).optional()
 });
 
 export default function BlogEditor({ 
@@ -33,10 +44,32 @@ export default function BlogEditor({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState(initialContent);
   const [blogImage, setBlogImage] = useState<string | null>(null);
+  const [category, setCategory] = useState<string>("");
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [hashtagInput, setHashtagInput] = useState<string>("");
   const [draft, setDraft] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("write");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Available blog categories
+  const categories = [
+    "Technology",
+    "Environment",
+    "Science",
+    "Bollywood",
+    "Space",
+    "Information Technology",
+    "Health",
+    "Travel",
+    "Food",
+    "Fashion",
+    "Sports",
+    "Entertainment",
+    "Politics",
+    "Business",
+    "Education"
+  ];
 
   useEffect(() => {
     if (isOpen && editMode && blogId) {
@@ -50,6 +83,12 @@ export default function BlogEditor({
           setContent(blog.content);
           if (blog.image) {
             setBlogImage(blog.image);
+          }
+          if (blog.category) {
+            setCategory(blog.category);
+          }
+          if (blog.hashtags && Array.isArray(blog.hashtags)) {
+            setHashtags(blog.hashtags);
           }
         } catch (error) {
           toast({
@@ -138,7 +177,13 @@ export default function BlogEditor({
   };
 
   const publishMutation = useMutation({
-    mutationFn: async (data: { title: string; content: string; image?: string }) => {
+    mutationFn: async (data: { 
+      title: string; 
+      content: string; 
+      image?: string;
+      category?: string;
+      hashtags?: string[];
+    }) => {
       if (editMode && blogId) {
         const res = await apiRequest("PUT", `/api/blogs/${blogId}`, data);
         return await res.json();
@@ -157,11 +202,15 @@ export default function BlogEditor({
       setTitle("");
       setContent("");
       setBlogImage(null);
+      setCategory("");
+      setHashtags([]);
+      setHashtagInput("");
       setDraft(false);
       onClose();
       // Invalidate queries to refresh the feed
       queryClient.invalidateQueries({ queryKey: ["/api/blogs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/blogs/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blogs/trending"] });
       if (blogId) {
         queryClient.invalidateQueries({ queryKey: [`/api/blogs/${blogId}`] });
       }
@@ -186,12 +235,33 @@ export default function BlogEditor({
     setContent(content + paragraphText);
   };
 
+  // Function to handle hashtag input
+  const handleHashtagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (hashtagInput.trim()) {
+        // Remove # if present and spaces
+        const formattedTag = hashtagInput.trim().replace(/^#/, '').replace(/\s+/g, '');
+        if (formattedTag && !hashtags.includes(formattedTag)) {
+          setHashtags([...hashtags, formattedTag]);
+        }
+        setHashtagInput('');
+      }
+    }
+  };
+
+  const removeHashtag = (tagToRemove: string) => {
+    setHashtags(hashtags.filter(tag => tag !== tagToRemove));
+  };
+
   const handlePublish = () => {
     try {
       const blogData = {
         title,
         content,
-        ...(blogImage && { image: blogImage })
+        ...(blogImage && { image: blogImage }),
+        ...(category && { category }),
+        ...(hashtags.length > 0 && { hashtags })
       };
       
       const validatedData = blogSchema.parse(blogData);
@@ -285,6 +355,56 @@ export default function BlogEditor({
               </button>
             </div>
           )}
+          
+          {/* Category selection */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Tag size={16} className="text-primary" />
+              <span className="text-sm font-medium">Category</span>
+            </div>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Hashtags input */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Hash size={16} className="text-primary" />
+              <span className="text-sm font-medium">Hashtags</span>
+            </div>
+            <div className="flex gap-2 flex-wrap mb-2">
+              {hashtags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="gap-1 px-3 py-1">
+                  #{tag}
+                  <button 
+                    className="ml-1 hover:text-destructive" 
+                    onClick={() => removeHashtag(tag)}
+                  >
+                    <X size={12} />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <Input
+              value={hashtagInput}
+              onChange={(e) => setHashtagInput(e.target.value)}
+              onKeyDown={handleHashtagKeyDown}
+              placeholder="Type hashtag and press Enter"
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Press Enter or comma (,) to add hashtags
+            </p>
+          </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
             <TabsList className="mb-2">
