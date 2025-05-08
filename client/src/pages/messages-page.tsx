@@ -814,9 +814,9 @@ export default function MessagesPage() {
                             {/* Render different message types */}
                             {msg.messageType === 'blog_share' ? (
                               <div className="flex flex-col">
-                                {/* Shared blog preview */}
+                                {/* Instagram-style shared blog preview */}
                                 <div 
-                                  className="border border-border rounded-md p-3 mb-2 bg-background text-foreground hover:bg-accent/50 cursor-pointer shadow-sm"
+                                  className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px]"
                                   onClick={() => {
                                     // Navigate to blog detail page when clicked
                                     if (msg.sharedBlog?._id) {
@@ -825,35 +825,52 @@ export default function MessagesPage() {
                                   }}
                                 >
                                   {/* Blog image if available */}
-                                  {(msg.sharedBlogPreview?.image || msg.sharedBlog?.image) && (
-                                    <div className="relative w-full h-32 mb-2 overflow-hidden rounded-md">
+                                  {(msg.sharedBlogPreview?.image || msg.sharedBlog?.image) ? (
+                                    <div className="w-full h-40 overflow-hidden">
                                       <img 
                                         src={msg.sharedBlogPreview?.image || msg.sharedBlog?.image} 
                                         alt={msg.sharedBlogPreview?.title || msg.sharedBlog?.title}
                                         className="w-full h-full object-cover"
                                       />
                                     </div>
+                                  ) : (
+                                    <div className="w-full h-20 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
+                                      <FileText className="w-10 h-10 text-primary/50" />
+                                    </div>
                                   )}
                                   
-                                  {/* Blog title */}
-                                  <h4 className="font-semibold text-sm mb-1">
-                                    {msg.sharedBlogPreview?.title || msg.sharedBlog?.title || "Shared blog post"}
-                                  </h4>
-                                  
-                                  {/* Blog excerpt */}
-                                  <p className="text-xs text-muted-foreground mb-1 line-clamp-2">
-                                    {msg.sharedBlogPreview?.excerpt || 
-                                     (msg.sharedBlog?.content && msg.sharedBlog.content.substring(0, 100) + "...") || 
-                                     "Click to view the full blog post"}
-                                  </p>
-                                  
-                                  <p className="text-xs text-primary">View full blog post</p>
+                                  {/* Blog preview content area */}
+                                  <div className="p-3">
+                                    {/* Blog title */}
+                                    <h4 className="font-semibold text-sm mb-1 line-clamp-2">
+                                      {msg.sharedBlogPreview?.title || msg.sharedBlog?.title || "Shared blog post"}
+                                    </h4>
+                                    
+                                    {/* Blog excerpt */}
+                                    <p className="text-xs text-muted-foreground mb-2 line-clamp-3">
+                                      {msg.sharedBlogPreview?.excerpt || 
+                                       (msg.sharedBlog?.content && msg.sharedBlog.content.substring(0, 100) + "...") || 
+                                       "Click to view the full blog post"}
+                                    </p>
+                                    
+                                    <div className="flex items-center justify-between mt-2">
+                                      <span className="text-xs font-medium text-primary flex items-center gap-1">
+                                        <MessageSquare className="w-3 h-3" /> View post
+                                      </span>
+                                      
+                                      <div className="text-xs text-muted-foreground">
+                                        blogx.com
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                                 
                                 {/* Message content as caption */}
-                                <p className="whitespace-pre-wrap break-words">
-                                  {msg.content}
-                                </p>
+                                {msg.content && msg.content !== `Check out this blog: "${msg.sharedBlogPreview?.title}"` && (
+                                  <p className="whitespace-pre-wrap break-words mb-1">
+                                    {msg.content}
+                                  </p>
+                                )}
                                 <p className="text-xs opacity-70 mt-1 text-right">
                                   {formatDistanceToNow(new Date(msg.createdAt), {
                                     addSuffix: true,
@@ -1062,14 +1079,25 @@ export default function MessagesPage() {
                             return;
                           }
                           
-                          // Create blog preview data
-                          const excerpt = blog.content.length > 100 
-                            ? blog.content.substring(0, 100) + "..." 
-                            : blog.content;
+                          // Create rich blog preview data with proper excerpt
+                          const generateExcerpt = (content: string) => {
+                            if (!content) return "";
+                            
+                            // Keep first paragraph but truncate if too long
+                            const firstParagraphMatch = content.match(/^.*?(\n|$)/);
+                            const firstParagraph = firstParagraphMatch ? firstParagraphMatch[0].trim() : content;
+                            
+                            if (firstParagraph.length <= 150) return firstParagraph;
+                            return firstParagraph.substring(0, 150).trim() + "...";
+                          };
                           
-                          // Message caption - use current message if any, or default
-                          const messageContent = currentMessage.trim() || `Check out this blog: "${blog.title}"`;
+                          const excerpt = generateExcerpt(blog.content);
                           
+                          // Message caption - use current message if any, or default caption
+                          const defaultCaption = `Check out this blog post: "${blog.title}"`;
+                          const messageContent = currentMessage.trim() || defaultCaption;
+                          
+                          // Send the message with rich blog preview
                           sendMessageMutation.mutate({
                             receiverId: id,
                             content: messageContent,
@@ -1261,28 +1289,43 @@ interface BlogShareCardProps {
 }
 
 function BlogShareCard({ blog, onSelect }: BlogShareCardProps) {
+  // Create excerpt from content
+  const generateExcerpt = (content: string) => {
+    if (!content) return "";
+    if (content.length <= 150) return content;
+    return content.substring(0, 150) + "...";
+  };
+
+  const excerpt = generateExcerpt(blog.content);
+
   return (
     <div 
-      className="border border-border rounded-lg p-3 hover:bg-accent/50 cursor-pointer transition-colors"
+      className="border border-border rounded-lg overflow-hidden hover:bg-accent/50 cursor-pointer transition-colors shadow-sm"
       onClick={onSelect}
     >
-      <div className="flex gap-3">
-        {blog.image && (
-          <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0">
-            <img 
-              src={blog.image} 
-              alt={blog.title} 
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-sm mb-1 truncate">{blog.title}</h4>
-          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-            {blog.content.substring(0, 100)}
-            {blog.content.length > 100 && "..."}
-          </p>
-          <div className="flex items-center text-xs text-muted-foreground">
+      {/* Blog image */}
+      {blog.image ? (
+        <div className="w-full h-32 overflow-hidden">
+          <img 
+            src={blog.image} 
+            alt={blog.title} 
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="w-full h-20 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
+          <FileText className="w-8 h-8 text-primary/60" />
+        </div>
+      )}
+      
+      {/* Blog content */}
+      <div className="p-3 flex-1 min-w-0">
+        <h4 className="font-semibold text-sm mb-1 truncate">{blog.title}</h4>
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+          {excerpt}
+        </p>
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center text-muted-foreground">
             <span className="flex items-center gap-1 mr-3">
               <Heart className="w-3 h-3" /> {blog.likeCount ?? 0}
             </span>
@@ -1290,6 +1333,13 @@ function BlogShareCard({ blog, onSelect }: BlogShareCardProps) {
               <MessageSquare className="w-3 h-3" /> {blog.commentCount ?? 0}
             </span>
           </div>
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="text-xs h-6 px-2 font-normal text-primary"
+          >
+            Share
+          </Button>
         </div>
       </div>
     </div>
