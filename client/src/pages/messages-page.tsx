@@ -54,6 +54,10 @@ export default function MessagesPage() {
     null,
   );
   const [localMessages, setLocalMessages] = useState<any[]>([]);
+  
+  // Instagram-style blog preview states
+  const [previewBlog, setPreviewBlog] = useState<any>(null);
+  const [showBlogPreview, setShowBlogPreview] = useState(false);
 
   // Get the current message input for this conversation
   const currentMessage = id ? messageInputs[id] || "" : "";
@@ -404,6 +408,19 @@ export default function MessagesPage() {
 
   return (
     <MainLayout pageTitle="Messages">
+      {/* Instagram-style blog preview dialog */}
+      {previewBlog && (
+        <BlogPreviewDialog 
+          blog={previewBlog} 
+          isOpen={showBlogPreview} 
+          onClose={() => {
+            setShowBlogPreview(false);
+            // Clear the preview blog data after a short delay
+            setTimeout(() => setPreviewBlog(null), 300);
+          }} 
+        />
+      )}
+      
       <div className="flex h-[calc(100vh-16rem)]">
         {/* Conversations List */}
         <div
@@ -818,9 +835,19 @@ export default function MessagesPage() {
                                 <div 
                                   className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px]"
                                   onClick={() => {
-                                    // Navigate to blog detail page when clicked
+                                    // Open Instagram-style blog preview dialog
                                     if (msg.sharedBlog?._id) {
-                                      window.location.href = `/blog/${msg.sharedBlog._id}`;
+                                      // First try to load the blog data if not already included
+                                      const blogData = msg.sharedBlog.title ? msg.sharedBlog : {
+                                        _id: msg.sharedBlog._id,
+                                        title: msg.sharedBlogPreview?.title || "Shared blog post",
+                                        content: msg.sharedBlogPreview?.excerpt || "",
+                                        image: msg.sharedBlogPreview?.image
+                                      };
+                                      
+                                      // Set the blog data and open preview dialog
+                                      setPreviewBlog(blogData);
+                                      setShowBlogPreview(true);
                                     }
                                   }}
                                 >
@@ -1297,6 +1324,69 @@ function BlogShareCard({ blog, onSelect }: BlogShareCardProps) {
   };
 
   const excerpt = generateExcerpt(blog.content);
+  
+// Instagram-style Blog Preview Dialog
+function BlogPreviewDialog({ blog, isOpen, onClose }: { 
+  blog: any; 
+  isOpen: boolean; 
+  onClose: () => void 
+}) {
+  if (!blog || !isOpen) return null;
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[650px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="text-xl">{blog.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          {/* Blog image */}
+          <div className="w-full overflow-hidden rounded-md">
+            {blog.image ? (
+              <img 
+                src={blog.image} 
+                alt={blog.title} 
+                className="w-full h-64 object-cover"
+              />
+            ) : (
+              <div className="w-full h-64 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
+                <FileText className="w-16 h-16 text-primary/60" />
+              </div>
+            )}
+          </div>
+          
+          {/* Blog content */}
+          <div className="flex flex-col h-64 overflow-y-auto">
+            <div className="prose prose-sm dark:prose-invert">
+              <h3 className="text-xl font-bold mb-2">{blog.title}</h3>
+              
+              <div className="whitespace-pre-wrap">
+                {blog.content}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Action buttons */}
+        <div className="flex justify-between items-center mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          
+          <Button onClick={() => {
+            // Navigate to the full blog page
+            window.location.href = `/blog/${blog._id}`;
+          }}>
+            View Full Blog
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
   return (
     <div 
