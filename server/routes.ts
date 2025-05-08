@@ -133,12 +133,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`Verified sender: ${sender.username}, receiver: ${receiver.username}`);
             
-            // Save message to database
-            const savedMessage = await storage.sendMessage({
+            // Prepare message data
+            const messageData: any = {
               senderId: data.from,
               receiverId: data.to,
               content: data.content
-            });
+            };
+            
+            // If it's a blog share type message, add the related fields
+            if (data.messageType === 'blog_share' && data.sharedBlogId) {
+              console.log(`Blog share message. Blog ID: ${data.sharedBlogId}`);
+              messageData.messageType = 'blog_share';
+              messageData.sharedBlogId = data.sharedBlogId;
+              
+              if (data.sharedBlogPreview) {
+                messageData.sharedBlogPreview = data.sharedBlogPreview;
+              }
+            }
+            
+            // Save message to database
+            const savedMessage = await storage.sendMessage(messageData);
             
             console.log(`WebSocket message saved with ID: ${savedMessage._id}`);
             

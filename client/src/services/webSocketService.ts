@@ -154,19 +154,39 @@ class WebSocketService {
   }
 
   // Send a direct message to another user
-  sendDirectMessage(to: string, content: string) {
+  sendDirectMessage(to: string, content: string, options?: {
+    messageType?: 'text' | 'blog_share';
+    sharedBlogId?: string;
+    sharedBlogPreview?: {
+      title: string;
+      excerpt: string;
+      image?: string;
+    }
+  }) {
     if (this.socket?.readyState !== WebSocket.OPEN || !this.userId) {
       console.error('Cannot send message: WebSocket not connected or user not authenticated');
       return false;
     }
     
-    this.socket.send(JSON.stringify({
+    const message: any = {
       type: 'direct_message',
       from: this.userId,
       to,
       content,
       timestamp: new Date()
-    }));
+    };
+
+    // Add blog sharing properties if provided
+    if (options?.messageType === 'blog_share' && options.sharedBlogId) {
+      message.messageType = 'blog_share';
+      message.sharedBlogId = options.sharedBlogId;
+      
+      if (options.sharedBlogPreview) {
+        message.sharedBlogPreview = options.sharedBlogPreview;
+      }
+    }
+    
+    this.socket.send(JSON.stringify(message));
     
     return true;
   }
