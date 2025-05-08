@@ -946,6 +946,29 @@ export default function MessagesPage() {
                                           title: blogTitle
                                         };
                                         
+                                        // State to hold loaded blog image
+                                        const [blogImage, setBlogImage] = useState<string | null>(null);
+                                        const [imageLoading, setImageLoading] = useState(true);
+                                        
+                                        // Fetch blog details for image preview
+                                        useEffect(() => {
+                                          if (blogId) {
+                                            setImageLoading(true);
+                                            fetch(`/api/blogs/${blogId}`)
+                                              .then(res => res.ok ? res.json() : null)
+                                              .then(data => {
+                                                if (data?.image) {
+                                                  setBlogImage(data.image);
+                                                }
+                                                setImageLoading(false);
+                                              })
+                                              .catch(err => {
+                                                console.error("Error loading blog image:", err);
+                                                setImageLoading(false);
+                                              });
+                                          }
+                                        }, [blogId]);
+                                        
                                         return (
                                           <>
                                             {/* Instagram-style shared blog preview */}
@@ -953,13 +976,27 @@ export default function MessagesPage() {
                                               className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px] hover:bg-accent/50 transition-colors"
                                               onClick={() => {
                                                 // Set the blog data and open preview dialog
-                                                setPreviewBlog(blogData);
+                                                setPreviewBlog({...blogData, image: blogImage});
                                                 setShowBlogPreview(true);
                                               }}
                                             >
-                                              <div className="w-full h-20 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
-                                                <FileText className="w-10 h-10 text-primary/50" />
-                                              </div>
+                                              {imageLoading ? (
+                                                <div className="w-full h-28 flex items-center justify-center bg-secondary/40">
+                                                  <Loader2 className="w-6 h-6 animate-spin text-primary/60" />
+                                                </div>
+                                              ) : blogImage ? (
+                                                <div className="w-full h-28 overflow-hidden">
+                                                  <img 
+                                                    src={blogImage} 
+                                                    alt={blogTitle}
+                                                    className="w-full h-full object-cover" 
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <div className="w-full h-28 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
+                                                  <FileText className="w-10 h-10 text-primary/50" />
+                                                </div>
+                                              )}
                                               
                                               {/* Blog preview content area */}
                                               <div className="p-3">
@@ -1322,31 +1359,32 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
           </DialogTitle>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {/* Blog image */}
-          <div className="w-full overflow-hidden rounded-md">
+        <div className="flex flex-col mt-2">
+          {/* Blog title */}
+          <h3 className="text-xl font-bold mb-2">{blogData.title}</h3>
+          
+          {/* Blog image below title */}
+          <div className="w-full overflow-hidden rounded-md mb-4">
             {loading ? (
-              <div className="w-full h-64 flex items-center justify-center bg-secondary/50">
+              <div className="w-full h-56 flex items-center justify-center bg-secondary/50">
                 <Loader2 className="w-10 h-10 animate-spin text-primary/60" />
               </div>
             ) : blogData.image ? (
               <img 
                 src={blogData.image} 
                 alt={blogData.title} 
-                className="w-full h-64 object-cover"
+                className="w-full max-h-56 object-cover"
               />
             ) : (
-              <div className="w-full h-64 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
+              <div className="w-full h-40 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
                 <FileText className="w-16 h-16 text-primary/60" />
               </div>
             )}
           </div>
           
           {/* Blog content */}
-          <div className="flex flex-col h-64 overflow-y-auto">
+          <div className="flex flex-col h-48 overflow-y-auto">
             <div className="prose prose-sm dark:prose-invert">
-              <h3 className="text-xl font-bold mb-2">{blogData.title}</h3>
-              
               {loading ? (
                 <div className="flex flex-col gap-2">
                   <div className="h-4 bg-secondary/50 rounded animate-pulse w-full"></div>
