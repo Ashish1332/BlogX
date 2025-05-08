@@ -176,8 +176,27 @@ class WebSocketService {
       timestamp: new Date()
     };
 
-    // Add blog sharing properties if provided
-    if (options?.messageType === 'blog_share' && options.sharedBlogId) {
+    // Auto-detect blog links in content if not explicitly a blog_share type
+    if (!options?.messageType && content.includes('Link: /blog/')) {
+      // Try to detect blog sharing pattern
+      const blogLinkPattern = /Check out this blog: "([^"]+)"[^\/]*Link: \/blog\/([a-zA-Z0-9]+)/;
+      const match = content.match(blogLinkPattern);
+      
+      if (match) {
+        const [_, title, blogId] = match;
+        console.log('Auto-detected blog share in message:', title, blogId);
+        
+        // Convert to blog_share message type automatically
+        message.messageType = 'blog_share';
+        message.sharedBlogId = blogId;
+        message.sharedBlogPreview = {
+          title: title,
+          excerpt: "Click to view the full blog post"
+        };
+      }
+    }
+    // Use explicit blog sharing properties if provided
+    else if (options?.messageType === 'blog_share' && options.sharedBlogId) {
       message.messageType = 'blog_share';
       message.sharedBlogId = options.sharedBlogId;
       

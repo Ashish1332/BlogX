@@ -1277,24 +1277,63 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
   isOpen: boolean; 
   onClose: () => void 
 }) {
+  const { toast } = useToast();
+  const [fullBlogData, setFullBlogData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Fetch full blog data if we only have ID
+  useEffect(() => {
+    if (isOpen && blog?._id && !blog.content) {
+      setLoading(true);
+      
+      fetch(`/api/blogs/${blog._id}`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error("Failed to fetch blog");
+          }
+          return res.json();
+        })
+        .then(data => {
+          setFullBlogData(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Error fetching blog details:", err);
+          toast({
+            title: "Error",
+            description: "Could not load blog details",
+            variant: "destructive"
+          });
+          setLoading(false);
+        });
+    }
+  }, [isOpen, blog?._id, toast]);
+  
   if (!blog || !isOpen) return null;
+  
+  // Use full blog data if available, otherwise use the basic blog props
+  const blogData = fullBlogData || blog;
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[650px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-xl">{blog.title}</span>
+            <span className="text-xl">{blogData.title}</span>
           </DialogTitle>
         </DialogHeader>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           {/* Blog image */}
           <div className="w-full overflow-hidden rounded-md">
-            {blog.image ? (
+            {loading ? (
+              <div className="w-full h-64 flex items-center justify-center bg-secondary/50">
+                <Loader2 className="w-10 h-10 animate-spin text-primary/60" />
+              </div>
+            ) : blogData.image ? (
               <img 
-                src={blog.image} 
-                alt={blog.title} 
+                src={blogData.image} 
+                alt={blogData.title} 
                 className="w-full h-64 object-cover"
               />
             ) : (
@@ -1307,11 +1346,19 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
           {/* Blog content */}
           <div className="flex flex-col h-64 overflow-y-auto">
             <div className="prose prose-sm dark:prose-invert">
-              <h3 className="text-xl font-bold mb-2">{blog.title}</h3>
+              <h3 className="text-xl font-bold mb-2">{blogData.title}</h3>
               
-              <div className="whitespace-pre-wrap">
-                {blog.content}
-              </div>
+              {loading ? (
+                <div className="flex flex-col gap-2">
+                  <div className="h-4 bg-secondary/50 rounded animate-pulse w-full"></div>
+                  <div className="h-4 bg-secondary/50 rounded animate-pulse w-3/4"></div>
+                  <div className="h-4 bg-secondary/50 rounded animate-pulse w-5/6"></div>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap">
+                  {blogData.content}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1322,11 +1369,20 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
             Close
           </Button>
           
-          <Button onClick={() => {
-            // Navigate to the full blog page
-            window.location.href = `/blog/${blog._id}`;
-          }}>
-            View Full Blog
+          <Button 
+            onClick={() => {
+              // Navigate to the full blog page
+              window.location.href = `/blog/${blogData._id}`;
+            }}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading
+              </>
+            ) : (
+              'View Full Blog'
+            )}
           </Button>
         </div>
       </DialogContent>
