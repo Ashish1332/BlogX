@@ -6,16 +6,18 @@ import { Loader2, Search, Tag, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { User } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"trending" | "search" | "interests">("trending");
+  const [activeTab, setActiveTab] = useState<"trending" | "search" | "interests" | "hashtag">("trending");
   const [isClient, setIsClient] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
+  const [location] = useLocation();
   
   // Available blog categories - should match the ones in BlogEditor
   const categories = [
@@ -38,6 +40,15 @@ export default function ExplorePage() {
 
   useEffect(() => {
     setIsClient(true);
+    
+    // Parse URL parameters to check for hashtag filter
+    const params = new URLSearchParams(window.location.search);
+    const hashtagParam = params.get('hashtag');
+    
+    if (hashtagParam) {
+      setSelectedHashtag(hashtagParam);
+      setActiveTab('hashtag');
+    }
   }, []);
 
   // Get trending blogs
@@ -83,6 +94,23 @@ export default function ExplorePage() {
       return res.json();
     },
     enabled: activeTab === "interests" && !!selectedCategory,
+  });
+  
+  // Hashtag filtered blogs
+  const {
+    data: hashtagBlogs,
+    isLoading: isHashtagLoading,
+    isError: isHashtagError,
+    refetch: refetchHashtag
+  } = useQuery({
+    queryKey: ["/api/blogs/hashtag", selectedHashtag],
+    queryFn: async () => {
+      if (!selectedHashtag) return [];
+      const res = await fetch(`/api/blogs?hashtag=${encodeURIComponent(selectedHashtag)}`);
+      if (!res.ok) throw new Error("Failed to fetch blogs for hashtag");
+      return res.json();
+    },
+    enabled: activeTab === "hashtag" && !!selectedHashtag,
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -140,11 +168,14 @@ export default function ExplorePage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "trending" | "search" | "interests")}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "trending" | "search" | "interests" | "hashtag")}>
         <TabsList className="w-full border-b border-border rounded-none">
           <TabsTrigger value="trending" className="flex-1">Trending</TabsTrigger>
           <TabsTrigger value="interests" className="flex-1">Interests</TabsTrigger>
           <TabsTrigger value="search" className="flex-1" disabled={!searchQuery.trim()}>Search</TabsTrigger>
+          {selectedHashtag && (
+            <TabsTrigger value="hashtag" className="flex-1">#{selectedHashtag}</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Trending Tab */}

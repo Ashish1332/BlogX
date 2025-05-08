@@ -43,12 +43,12 @@ export default function RightSidebar() {
     enabled: searchQuery.length >= 2,
   });
 
-  // Navigate to search results for a hashtag
+  // Navigate to explore page with hashtag filter
   const handleHashtagClick = (hashtag: string) => {
     // Remove the # symbol if present
     const searchTerm = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
-    // Navigate to search results with the hashtag as query
-    navigate(`/search?q=${encodeURIComponent(searchTerm)}`);
+    // Navigate to explore page with hashtag filter
+    navigate(`/explore?hashtag=${encodeURIComponent(searchTerm)}`);
   };
 
   // Follow/unfollow a user
