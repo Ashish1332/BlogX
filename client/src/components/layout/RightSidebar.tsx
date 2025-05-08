@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 
-type TrendingTopic = {
-  category: string;
+type TrendingHashtag = {
   hashtag: string;
+  category: string;
   count: number;
 };
 
@@ -17,16 +17,19 @@ type SuggestedUser = User & {
 };
 
 export default function RightSidebar() {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [, navigate] = useLocation();
 
-  // Get trending blogs
-  const { data: trendingBlogs } = useQuery({
-    queryKey: ["/api/blogs/trending"],
+  // Fetch real trending hashtags from the backend
+  const { data: trendingHashtags, isLoading: isLoadingHashtags } = useQuery({
+    queryKey: ["/api/hashtags/trending"],
+    queryFn: async () => {
+      const res = await fetch("/api/hashtags/trending");
+      if (!res.ok) throw new Error("Failed to fetch trending hashtags");
+      return res.json();
+    }
   });
-
-  // Extract trending topics from blogs
-  const trendingTopics: TrendingTopic[] = trendingBlogs ? extractTrendingTopics(trendingBlogs) : [];
 
   // Get suggested users to follow
   const { data: searchResults } = useQuery({
@@ -39,6 +42,14 @@ export default function RightSidebar() {
     },
     enabled: searchQuery.length >= 2,
   });
+
+  // Navigate to search results for a hashtag
+  const handleHashtagClick = (hashtag: string) => {
+    // Remove the # symbol if present
+    const searchTerm = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
+    // Navigate to search results with the hashtag as query
+    navigate(`/search?q=${encodeURIComponent(searchTerm)}`);
+  };
 
   // Follow/unfollow a user
   const followUser = async (userId: number, isFollowing: boolean) => {
@@ -58,18 +69,6 @@ export default function RightSidebar() {
       console.error("Failed to follow/unfollow user:", error);
     }
   };
-
-  function extractTrendingTopics(blogs: any[]): TrendingTopic[] {
-    // Categories for trending topics
-    const categories = ["Technology", "Business", "Productivity", "Design", "Marketing"];
-    
-    // Extract topics from blog titles and content (simulated for demo)
-    return blogs.slice(0, 3).map((blog, index) => ({
-      category: categories[index % categories.length],
-      hashtag: `#${blog.title.split(' ').slice(0, 2).join('').replace(/[^a-zA-Z0-9]/g, '')}`,
-      count: Math.floor(Math.random() * 5000) + 1000
-    }));
-  }
 
   return (
     <div className="hidden lg:block w-80 h-screen sticky top-0 p-2 overflow-y-auto">
@@ -146,21 +145,36 @@ export default function RightSidebar() {
         </div>
       )}
       
-      {/* Trending Blogs (when not searching) */}
+      {/* Trending Hashtags (when not searching) */}
       {!searchQuery && (
         <div className="bg-card rounded-2xl mt-3 overflow-hidden">
           <h2 className="text-xl font-bold p-4">Trending Topics</h2>
           <div className="divide-y divide-border">
-            {trendingTopics.map((trend, index) => (
-              <div key={index} className="p-4 hover:bg-secondary/50 cursor-pointer">
-                <div className="text-muted-foreground text-sm">Trending in {trend.category}</div>
-                <div className="font-bold my-0.5">{trend.hashtag}</div>
-                <div className="text-muted-foreground text-sm">{trend.count.toLocaleString()} blogs</div>
+            {isLoadingHashtags ? (
+              // Loading state
+              <div className="p-4 text-muted-foreground">Loading trending hashtags...</div>
+            ) : trendingHashtags && trendingHashtags.length > 0 ? (
+              // Display real trending hashtags
+              trendingHashtags.map((hashtag: TrendingHashtag, index) => (
+                <div 
+                  key={index} 
+                  className="p-4 hover:bg-secondary/50 cursor-pointer"
+                  onClick={() => handleHashtagClick(hashtag.hashtag)}
+                >
+                  <div className="text-muted-foreground text-sm">Trending in {hashtag.category || 'BlogX'}</div>
+                  <div className="font-bold my-0.5">{hashtag.hashtag}</div>
+                  <div className="text-muted-foreground text-sm">{hashtag.count.toLocaleString()} posts</div>
+                </div>
+              ))
+            ) : (
+              // No hashtags found
+              <div className="p-4 text-muted-foreground">No trending hashtags found</div>
+            )}
+            {trendingHashtags && trendingHashtags.length > 0 && (
+              <div className="p-4 hover:bg-secondary/50 cursor-pointer text-primary">
+                Show more
               </div>
-            ))}
-            <div className="p-4 hover:bg-secondary/50 cursor-pointer text-primary">
-              Show more
-            </div>
+            )}
           </div>
         </div>
       )}
