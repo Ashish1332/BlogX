@@ -55,33 +55,13 @@ export function ShareDialog({ blogId, blogTitle, children }: ShareDialogProps) {
   });
 
   // Share mutation
-  // Fetch blog details to create a rich preview
-  const { data: blogData } = useQuery({
-    queryKey: [`/api/blogs/${blogId}`],
-    enabled: open && !!blogId,
-  });
-
   const shareMutation = useMutation({
     mutationFn: async (userId: string) => {
-      // Create a default message if none provided
-      const defaultMessage = `Check out this blog: "${blogTitle}"`;
-      const messageContent = message || defaultMessage;
+      // Format blog share message
+      const content = `${message ? message + "\n\n" : ""}Check out this blog: "${blogTitle}"\nLink: /blog/${blogId}`;
       
-      // Extract a short excerpt from blog content
-      const excerpt = blogData?.content 
-        ? blogData.content.substring(0, 150) + (blogData.content.length > 150 ? "..." : "") 
-        : "Click to view this blog post";
-      
-      // Use rich blog sharing with preview
       const res = await apiRequest("POST", `/api/messages/${userId}`, {
-        content: messageContent,
-        messageType: 'blog_share',
-        sharedBlogId: blogId,
-        sharedBlogPreview: {
-          title: blogTitle,
-          excerpt: excerpt,
-          image: blogData?.image
-        }
+        content
       });
       return await res.json();
     },
