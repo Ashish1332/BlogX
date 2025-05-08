@@ -14,6 +14,9 @@ import {
   UserPlus,
   Trash2,
   MessageSquare as MessageSquareIcon,
+  FileText,
+  Heart,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import webSocketService from "@/services/webSocketService";
@@ -30,6 +33,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 export default function MessagesPage() {
   const { id } = useParams();
@@ -766,14 +775,69 @@ export default function MessagesPage() {
                                 : undefined,
                             }}
                           >
-                            <p className="whitespace-pre-wrap break-words">
-                              {msg.content}
-                            </p>
-                            <p className="text-xs opacity-70 mt-1 text-right">
-                              {formatDistanceToNow(new Date(msg.createdAt), {
-                                addSuffix: true,
-                              })}
-                            </p>
+                            {/* Render different message types */}
+                            {msg.messageType === 'blog_share' ? (
+                              <div className="flex flex-col">
+                                {/* Shared blog preview */}
+                                <div 
+                                  className="border border-border rounded-md p-3 mb-2 bg-background hover:bg-accent/50 cursor-pointer"
+                                  onClick={() => {
+                                    // Navigate to blog detail page when clicked
+                                    if (msg.sharedBlog?._id) {
+                                      window.location.href = `/blog/${msg.sharedBlog._id}`;
+                                    }
+                                  }}
+                                >
+                                  {/* Blog image if available */}
+                                  {(msg.sharedBlogPreview?.image || msg.sharedBlog?.image) && (
+                                    <div className="relative w-full h-32 mb-2 overflow-hidden rounded-md">
+                                      <img 
+                                        src={msg.sharedBlogPreview?.image || msg.sharedBlog?.image} 
+                                        alt={msg.sharedBlogPreview?.title || msg.sharedBlog?.title}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                  
+                                  {/* Blog title */}
+                                  <h4 className="font-semibold text-sm mb-1">
+                                    {msg.sharedBlogPreview?.title || msg.sharedBlog?.title || "Shared blog post"}
+                                  </h4>
+                                  
+                                  {/* Blog excerpt */}
+                                  <p className="text-xs text-muted-foreground mb-1 line-clamp-2">
+                                    {msg.sharedBlogPreview?.excerpt || 
+                                     (msg.sharedBlog?.content && msg.sharedBlog.content.substring(0, 100) + "...") || 
+                                     "Click to view the full blog post"}
+                                  </p>
+                                  
+                                  <p className="text-xs text-primary">View full blog post</p>
+                                </div>
+                                
+                                {/* Message content as caption */}
+                                <p className="whitespace-pre-wrap break-words">
+                                  {msg.content}
+                                </p>
+                                <p className="text-xs opacity-70 mt-1 text-right">
+                                  {formatDistanceToNow(new Date(msg.createdAt), {
+                                    addSuffix: true,
+                                  })}
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Regular text message */}
+                                <p className="whitespace-pre-wrap break-words">
+                                  {msg.content}
+                                </p>
+                                <p className="text-xs opacity-70 mt-1 text-right">
+                                  {formatDistanceToNow(new Date(msg.createdAt), {
+                                    addSuffix: true,
+                                  })}
+                                </p>
+                              </>
+                            )}
+                            
 
                             {/* Message deletion button */}
                             {isFromCurrentUser && (
@@ -930,6 +994,67 @@ export default function MessagesPage() {
                   }}
                   className="flex-1"
                 />
+                {/* Blog sharing button */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="text-muted-foreground"
+                      title="Share a blog post"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Share a blog post</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <BlogSharePicker
+                        onSelectBlog={(blog) => {
+                          // Close dialog programmatically
+                          document.querySelector('[data-state="open"] button[data-dismiss]')?.click();
+                          
+                          if (!id) {
+                            toast({
+                              title: "Cannot share blog",
+                              description: "No recipient selected. Please try again.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          // Create blog preview data
+                          const excerpt = blog.content.length > 100 
+                            ? blog.content.substring(0, 100) + "..." 
+                            : blog.content;
+                          
+                          // Message caption - use current message if any, or default
+                          const messageContent = currentMessage.trim() || `Check out this blog: "${blog.title}"`;
+                          
+                          sendMessageMutation.mutate({
+                            receiverId: id,
+                            content: messageContent,
+                            messageType: 'blog_share',
+                            sharedBlogId: blog._id,
+                            sharedBlogPreview: {
+                              title: blog.title,
+                              excerpt: excerpt,
+                              image: blog.image
+                            }
+                          });
+                          
+                          // Clear message input
+                          setCurrentMessage('');
+                        }}
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                {/* Send button */}
                 <Button
                   type="submit"
                   size="icon"
@@ -1007,5 +1132,130 @@ function UserStatusIndicator({ userId }: { userId: string }) {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+// Component for picking a blog to share
+interface BlogSharePickerProps {
+  onSelectBlog: (blog: any) => void;
+}
+
+function BlogSharePicker({ onSelectBlog }: BlogSharePickerProps) {
+  const { user } = useAuth();
+  const [selectedTab, setSelectedTab] = useState<"my" | "bookmarks">("my");
+  
+  // Query for user's blogs
+  const { data: myBlogs, isLoading: myBlogsLoading } = useQuery({
+    queryKey: [`/api/blogs/user/${user?._id}`],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user?._id,
+  });
+  
+  // Query for bookmarked blogs
+  const { data: bookmarkedBlogs, isLoading: bookmarksLoading } = useQuery({
+    queryKey: ['/api/bookmarks'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user?._id,
+  });
+  
+  return (
+    <div className="w-full">
+      <Tabs defaultValue="my" onValueChange={(value) => setSelectedTab(value as "my" | "bookmarks")}>
+        <TabsList className="w-full mb-4">
+          <TabsTrigger value="my" className="flex-1">My Blogs</TabsTrigger>
+          <TabsTrigger value="bookmarks" className="flex-1">Bookmarked Blogs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="my">
+          {myBlogsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : myBlogs?.length > 0 ? (
+            <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-1">
+              {myBlogs.map((blog: any) => (
+                <BlogShareCard 
+                  key={blog._id} 
+                  blog={blog} 
+                  onSelect={() => onSelectBlog(blog)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>You haven't created any blogs yet.</p>
+              <Button asChild className="mt-4">
+                <a href="/create-blog">Create a Blog</a>
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+        <TabsContent value="bookmarks">
+          {bookmarksLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : bookmarkedBlogs?.length > 0 ? (
+            <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-1">
+              {bookmarkedBlogs.map((blog: any) => (
+                <BlogShareCard 
+                  key={blog._id} 
+                  blog={blog} 
+                  onSelect={() => onSelectBlog(blog)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>You haven't bookmarked any blogs yet.</p>
+              <Button asChild className="mt-4">
+                <a href="/explore">Explore Blogs</a>
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Card component for displaying a blog in the share picker
+interface BlogShareCardProps {
+  blog: any;
+  onSelect: () => void;
+}
+
+function BlogShareCard({ blog, onSelect }: BlogShareCardProps) {
+  return (
+    <div 
+      className="border border-border rounded-lg p-3 hover:bg-accent/50 cursor-pointer transition-colors"
+      onClick={onSelect}
+    >
+      <div className="flex gap-3">
+        {blog.image && (
+          <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0">
+            <img 
+              src={blog.image} 
+              alt={blog.title} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-sm mb-1 truncate">{blog.title}</h4>
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+            {blog.content.substring(0, 100)}
+            {blog.content.length > 100 && "..."}
+          </p>
+          <div className="flex items-center text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 mr-3">
+              <Heart className="w-3 h-3" /> {blog.likeCount ?? 0}
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare className="w-3 h-3" /> {blog.commentCount ?? 0}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
