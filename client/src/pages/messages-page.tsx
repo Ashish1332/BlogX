@@ -160,22 +160,45 @@ export default function MessagesPage() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!id) throw new Error("No recipient selected");
+    mutationFn: async (messageData: {
+      receiverId: string;
+      content: string;
+      messageType?: 'text' | 'blog_share';
+      sharedBlogId?: string;
+      sharedBlogPreview?: {
+        title: string;
+        excerpt: string;
+        image?: string;
+      }
+    }) => {
+      const { receiverId, content, messageType = 'text', sharedBlogId, sharedBlogPreview } = messageData;
+      
+      if (!receiverId) throw new Error("No recipient selected");
 
       // Try real-time delivery via WebSocket first, but don't send via API if successful
-      // Instead, let the server handle persistence when it receives the WebSocket message
       if (webSocketService.isConnected() && currentUser?._id) {
-        const sent = webSocketService.sendDirectMessage(id, content);
+        // Prepare WebSocket message options based on message type
+        const wsOptions = messageType === 'blog_share' && sharedBlogId
+          ? {
+              messageType: 'blog_share',
+              sharedBlogId,
+              sharedBlogPreview
+            }
+          : undefined;
+          
+        const sent = webSocketService.sendDirectMessage(receiverId, content, wsOptions);
+        
         if (sent) {
-          console.log("Message sent via WebSocket only - server will persist");
-          // Return a temporary placeholder message object since the server will handle persistence
-          // This avoids the duplicate message issue
+          console.log("Message sent via WebSocket - server will persist");
+          // Return a temporary placeholder message object
           return {
             _id: "temp-" + Date.now(),
             senderId: currentUser._id,
-            receiverId: id,
+            receiverId: receiverId,
             content: content,
+            messageType,
+            sharedBlog: sharedBlogId ? { _id: sharedBlogId } : undefined,
+            sharedBlogPreview,
             createdAt: new Date().toISOString(),
             read: false,
           };
@@ -185,7 +208,16 @@ export default function MessagesPage() {
       }
 
       // Fall back to regular API call if WebSocket is not connected
-      const res = await apiRequest("POST", `/api/messages/${id}`, { content });
+      const apiPayload = { 
+        content,
+        ...(messageType === 'blog_share' && sharedBlogId ? {
+          messageType,
+          sharedBlogId,
+          sharedBlogPreview
+        } : {})
+      };
+      
+      const res = await apiRequest("POST", `/api/messages/${receiverId}`, apiPayload);
       return await res.json();
     },
     onSuccess: () => {
@@ -295,7 +327,11 @@ export default function MessagesPage() {
     }
 
     // Send the message
-    sendMessageMutation.mutate(currentMessage);
+    sendMessageMutation.mutate({
+      receiverId: id as string,
+      content: currentMessage,
+      messageType: 'text'
+    });
   };
 
   // Fetch following list for conversation suggestions
@@ -780,7 +816,7 @@ export default function MessagesPage() {
                               <div className="flex flex-col">
                                 {/* Shared blog preview */}
                                 <div 
-                                  className="border border-border rounded-md p-3 mb-2 bg-background hover:bg-accent/50 cursor-pointer"
+                                  className="border border-border rounded-md p-3 mb-2 bg-background text-foreground hover:bg-accent/50 cursor-pointer shadow-sm"
                                   onClick={() => {
                                     // Navigate to blog detail page when clicked
                                     if (msg.sharedBlog?._id) {
