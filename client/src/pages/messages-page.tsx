@@ -940,18 +940,17 @@ export default function MessagesPage() {
                                       const blogTitle = titleMatch ? titleMatch[1] : "Shared blog post";
                                       
                                       if (blogId) {
-                                        // Create mock blog data for the preview
+                                        // Create blog data for the preview - we'll fetch the full content when it's opened
                                         const blogData = {
                                           _id: blogId,
-                                          title: blogTitle,
-                                          content: "Click to view the full blog post"
+                                          title: blogTitle
                                         };
                                         
                                         return (
                                           <>
                                             {/* Instagram-style shared blog preview */}
                                             <div 
-                                              className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px]"
+                                              className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px] hover:bg-accent/50 transition-colors"
                                               onClick={() => {
                                                 // Set the blog data and open preview dialog
                                                 setPreviewBlog(blogData);
