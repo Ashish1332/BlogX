@@ -1280,7 +1280,7 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
   const [fullBlogData, setFullBlogData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   
-  // Fetch full blog data if we only have ID
+  // Fetch full blog data when dialog is opened
   useEffect(() => {
     if (isOpen && blog?._id) {
       // Always fetch full blog data to ensure we have the latest
@@ -1310,10 +1310,15 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
     }
   }, [isOpen, blog?._id, toast]);
   
+  // Skip rendering if dialog is not open or no blog data
   if (!blog || !isOpen) return null;
   
   // Use full blog data if available, otherwise use the basic blog props
   const blogData = fullBlogData || blog;
+  
+  // Check if we have the necessary data to display
+  const hasFullData = fullBlogData !== null;
+  const hasImageUrl = blogData.image && typeof blogData.image === 'string';
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -1331,11 +1336,22 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
               <div className="w-full h-64 flex items-center justify-center bg-secondary/50">
                 <Loader2 className="w-10 h-10 animate-spin text-primary/60" />
               </div>
-            ) : blogData.image ? (
+            ) : hasImageUrl ? (
               <img 
                 src={blogData.image} 
-                alt={blogData.title} 
+                alt={blogData.title || "Blog image"} 
                 className="w-full h-64 object-cover"
+                onError={(e) => {
+                  // If image fails to load, show a fallback
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    const fallback = document.createElement('div');
+                    fallback.className = "w-full h-64 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30";
+                    fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-16 h-16 text-primary/60"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>';
+                    parent.appendChild(fallback);
+                  }
+                }}
               />
             ) : (
               <div className="w-full h-64 flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/30">
@@ -1357,7 +1373,26 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
                 </div>
               ) : (
                 <div className="whitespace-pre-wrap">
-                  {blogData.content}
+                  {blogData.content || (hasFullData ? "No content available" : "Loading blog content...")}
+                </div>
+              )}
+              
+              {/* Show category and hashtags if available */}
+              {blogData.category && (
+                <div className="mt-4">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                    {blogData.category}
+                  </span>
+                </div>
+              )}
+              
+              {blogData.hashtags && blogData.hashtags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {blogData.hashtags.map((tag: string, i: number) => (
+                    <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
+                      #{tag}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
