@@ -71,6 +71,7 @@ export interface IStorage {
   
   // Trending methods
   getTrendingBlogs: (limit?: number) => Promise<any[]>;
+  getTrendingHashtags: (limit?: number) => Promise<any[]>;
   
   // Session store for authentication
   sessionStore: session.Store;
@@ -1151,6 +1152,58 @@ export class DatabaseStorage implements IStorage {
         .slice(0, limit);
     } catch (error) {
       console.error("Error getting trending blogs:", error);
+      return [];
+    }
+  }
+
+  async getTrendingHashtags(limit = 5): Promise<any[]> {
+    try {
+      console.log(`Fetching trending hashtags, limit: ${limit}`);
+      
+      // Get all blogs with hashtags
+      const blogs = await Blog.find({ hashtags: { $exists: true, $ne: [] } })
+        .select('hashtags category');
+      
+      console.log(`Found ${blogs.length} blogs with hashtags`);
+      
+      // Count hashtag occurrences
+      const hashtagCounts = new Map<string, { count: number, categories: Set<string> }>();
+      
+      blogs.forEach(blog => {
+        const blogObj = blog.toObject();
+        const category = blogObj.category || 'General';
+        
+        if (blogObj.hashtags && Array.isArray(blogObj.hashtags)) {
+          blogObj.hashtags.forEach((tag: string) => {
+            // Normalize hashtag format (add # if not present)
+            const hashtag = tag.startsWith('#') ? tag : `#${tag}`;
+            
+            if (!hashtagCounts.has(hashtag)) {
+              hashtagCounts.set(hashtag, { count: 0, categories: new Set() });
+            }
+            
+            const data = hashtagCounts.get(hashtag)!;
+            data.count += 1;
+            data.categories.add(category);
+          });
+        }
+      });
+      
+      // Convert to array and sort by count
+      const sortedHashtags = Array.from(hashtagCounts.entries())
+        .map(([hashtag, data]) => ({
+          hashtag,
+          count: data.count,
+          // Use the most common category for this hashtag
+          category: Array.from(data.categories)[0]
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
+      
+      console.log(`Returning ${sortedHashtags.length} trending hashtags`);
+      return sortedHashtags;
+    } catch (error) {
+      console.error("Error getting trending hashtags:", error);
       return [];
     }
   }
