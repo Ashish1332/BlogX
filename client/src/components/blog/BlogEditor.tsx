@@ -260,7 +260,7 @@ export default function BlogEditor({
         title,
         content,
         ...(blogImage && { image: blogImage }),
-        ...(category && { category }),
+        ...(category && category !== 'none' && { category }),
         ...(hashtags.length > 0 && { hashtags })
       };
       
@@ -367,7 +367,7 @@ export default function BlogEditor({
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                 ))}

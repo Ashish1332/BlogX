@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"trending" | "search" | "categories">("trending");
+  const [activeTab, setActiveTab] = useState<"trending" | "search" | "interests">("trending");
   const [isClient, setIsClient] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
@@ -82,7 +82,7 @@ export default function ExplorePage() {
       if (!res.ok) throw new Error("Failed to fetch blogs for category");
       return res.json();
     },
-    enabled: activeTab === "categories" && !!selectedCategory,
+    enabled: activeTab === "interests" && !!selectedCategory,
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -98,7 +98,7 @@ export default function ExplorePage() {
       refetchTrending();
     } else if (activeTab === "search") {
       refetchSearch();
-    } else if (activeTab === "categories") {
+    } else if (activeTab === "interests") {
       refetchCategory();
     }
   };
@@ -106,8 +106,8 @@ export default function ExplorePage() {
   // Handle category selection
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
-    if (activeTab !== "categories") {
-      setActiveTab("categories");
+    if (activeTab !== "interests") {
+      setActiveTab("interests");
     }
     refetchCategory();
   };
@@ -140,10 +140,10 @@ export default function ExplorePage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "trending" | "search" | "categories")}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "trending" | "search" | "interests")}>
         <TabsList className="w-full border-b border-border rounded-none">
           <TabsTrigger value="trending" className="flex-1">Trending</TabsTrigger>
-          <TabsTrigger value="categories" className="flex-1">Categories</TabsTrigger>
+          <TabsTrigger value="interests" className="flex-1">Interests</TabsTrigger>
           <TabsTrigger value="search" className="flex-1" disabled={!searchQuery.trim()}>Search</TabsTrigger>
         </TabsList>
 
@@ -181,10 +181,10 @@ export default function ExplorePage() {
         </TabsContent>
 
         {/* Search Results Tab */}
-        {/* Categories Tab */}
-        <TabsContent value="categories">
+        {/* Interests Tab */}
+        <TabsContent value="interests">
           <div className="p-4">
-            <h2 className="text-lg font-bold mb-3">Browse by Category</h2>
+            <h2 className="text-lg font-bold mb-3">Browse by Interest</h2>
             <ScrollArea className="max-h-[200px] mb-6">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-1">
                 {categories.map((category) => (
