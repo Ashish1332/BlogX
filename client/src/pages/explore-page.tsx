@@ -374,6 +374,59 @@ export default function ExplorePage() {
             </>
           )}
         </TabsContent>
+        
+        {/* Hashtag Tab */}
+        <TabsContent value="hashtag">
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <Hash size={16} className="text-primary" />
+                {selectedHashtag}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedHashtag(null);
+                  setActiveTab("trending");
+                  window.history.pushState({}, "", "/explore");
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+            
+            {isHashtagLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : isHashtagError ? (
+              <div className="py-8 text-center">
+                <p className="text-destructive mb-2">Failed to load blogs</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => refetchHashtag()}
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : hashtagBlogs && hashtagBlogs.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">No blogs found with #{selectedHashtag} hashtag</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {hashtagBlogs && hashtagBlogs.map((blog: any) => (
+                  <BlogCard 
+                    key={blog._id} 
+                    blog={blog} 
+                    onDelete={() => refetchHashtag()}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
     </MainLayout>
   );
