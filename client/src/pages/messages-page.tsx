@@ -951,7 +951,7 @@ export default function MessagesPage() {
                                             {/* Instagram-style shared blog preview */}
                                             <div 
                                               className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px] hover:bg-accent/50 transition-colors"
-                                              onClick={(){
+                                              onClick={() => {
                                                 // Set the blog data and open preview dialog
                                                 setPreviewBlog(blogData);
                                                 setShowBlogPreview(true);
