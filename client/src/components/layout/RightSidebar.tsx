@@ -25,7 +25,7 @@ export default function RightSidebar() {
   const { data: trendingHashtags, isLoading: isLoadingHashtags } = useQuery({
     queryKey: ["/api/hashtags/trending"],
     queryFn: async () => {
-      const res = await fetch("/api/hashtags/trending");
+      const res = await fetch("/api/hashtags/trending?limit=3");
       if (!res.ok) throw new Error("Failed to fetch trending hashtags");
       return res.json();
     }
