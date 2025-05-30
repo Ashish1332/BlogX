@@ -39,7 +39,7 @@ export function Logo({ className = '', size = 'md' }: LogoProps) {
           />
         </svg>
         <span className={`font-bold ${size === 'sm' ? 'text-xl' : size === 'md' ? 'text-2xl' : 'text-3xl'} text-primary`}>
-          Blogr
+          BlogX
         </span>
       </div>
     </Link>

@@ -240,7 +240,7 @@ export default function AuthPage() {
       {/* Hero Section */}
       <div className="hidden lg:flex flex-1 bg-primary/10 items-center justify-center p-12">
         <div className="max-w-lg text-center">
-          <h2 className="text-4xl font-bold mb-6">Welcome to Blogr</h2>
+          <h2 className="text-4xl font-bold mb-6">Welcome to BlogX</h2>
           <p className="text-xl mb-8">
             A platform for bloggers to share ideas, connect with readers, and join a community of writers.
           </p>
