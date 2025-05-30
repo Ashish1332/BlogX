@@ -56,7 +56,7 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     console.log("[UPLOAD] File filter called for:", file.originalname, "mimetype:", file.mimetype);
-
+    
     // Accept all images for now to debug the upload process
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
     if (allowedTypes.includes(file.mimetype)) {
@@ -82,87 +82,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   const httpServer = createServer(app);
-
+  
   // WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-
+  
   // Track connected clients and their user IDs
   const clients = new Map();
-
+  
   // Track online users and their last active time
   const onlineUsers = new Map<string, { lastActive: Date }>();
-
+  
   // Helper to check if a user is online
   function isUserOnline(userId: string): boolean {
     return clients.has(userId) || onlineUsers.has(userId);
   }
-
+  
   // Update user's active status
   function updateUserActiveStatus(userId: string) {
     onlineUsers.set(userId, { lastActive: new Date() });
   }
-
+  
   wss.on('connection', (ws, req) => {
     console.log('WebSocket connection established');
-
+    
     ws.on('message', async (message) => {
       try {
         const data = JSON.parse(message.toString());
         console.log('WebSocket message received:', data);
-
+        
         // If client sends a userId, associate it with this connection
         if (data.type === 'identity' && data.userId) {
           clients.set(ws, data.userId);
           console.log(`Client identified as user: ${data.userId}`);
           updateUserActiveStatus(data.userId);
         }
-
+        
         // Handle direct messages between users
         if (data.type === 'direct_message' && data.to && data.content && data.from) {
           console.log(`Direct message from ${data.from} to ${data.to}`);
-
+          
           try {
             // Verify users exist
             const sender = await storage.getUser(data.from);
             const receiver = await storage.getUser(data.to);
-
+            
             if (!sender || !receiver) {
               console.error(`Invalid users in message: sender=${data.from}, receiver=${data.to}`);
               return;
             }
-
+            
             console.log(`Verified sender: ${sender.username}, receiver: ${receiver.username}`);
-
+            
             // Prepare message data
             const messageData: any = {
               senderId: data.from,
               receiverId: data.to,
               content: data.content
             };
-
+            
             // If it's a blog share type message, add the related fields
             if (data.messageType === 'blog_share' && data.sharedBlogId) {
               console.log(`Blog share message. Blog ID: ${data.sharedBlogId}`);
               messageData.messageType = 'blog_share';
               messageData.sharedBlogId = data.sharedBlogId;
-
+              
               if (data.sharedBlogPreview) {
                 messageData.sharedBlogPreview = data.sharedBlogPreview;
               }
             }
-
+            
             // Save message to database
             const savedMessage = await storage.sendMessage(messageData);
-
+            
             console.log(`WebSocket message saved with ID: ${savedMessage._id}`);
-
+            
             // Forward message to recipient
             broadcastToUser(data.to, {
               type: 'new_message',
               message: savedMessage,
               sender: sender
             });
-
+            
             // Also broadcast to the sender to update their UI immediately
             // This avoids needing a separate refetch
             broadcastToUser(data.from, {
@@ -170,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               message: savedMessage,
               isSender: true  // Flag to identify that user is sender
             });
-
+            
             // Send confirmation to sender
             ws.send(JSON.stringify({
               type: 'message_sent',
@@ -187,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }));
           }
         }
-
+        
         // Handle typing indicators
         if (data.type === 'typing' && data.to && data.from) {
           broadcastToUser(data.to, {
@@ -200,19 +200,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('WebSocket message error:', error);
       }
     });
-
+    
     // Send a welcome message to the client
     ws.send(JSON.stringify({
       type: 'welcome',
       message: 'Connected to BlogX realtime server',
       timestamp: new Date()
     }));
-
+    
     ws.on('close', () => {
       console.log('WebSocket connection closed');
       clients.delete(ws);
     });
-
+    
     // Ping clients periodically to keep connection alive
     const pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -222,13 +222,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }, 30000);
   });
-
+  
   // Broadcast a message to all users following a specific user
   async function broadcastToFollowers(userId: string, data: any) {
     try {
       const followers = await storage.getFollowers(userId);
       console.log(`Broadcasting to ${followers.length} followers of user ${userId}`);
-
+      
       let broadcasted = 0;
       clients.forEach((clientUserId, client) => {
         // Check if this client is a follower (using MongoDB _id)
@@ -236,19 +236,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const followerId = follower._id ? follower._id.toString() : '';
           return followerId === clientUserId;
         });
-
+        
         if (client.readyState === WebSocket.OPEN && isFollower) {
           client.send(JSON.stringify(data));
           broadcasted++;
         }
       });
-
+      
       console.log(`Successfully broadcast to ${broadcasted} online followers`);
     } catch (err) {
       console.error('Error broadcasting to followers:', err);
     }
   }
-
+  
   // Broadcast a message to a specific user
   function broadcastToUser(userId: string, data: any) {
     let sent = false;
@@ -266,16 +266,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-
+      
       console.log(`Fetching blogs with limit: ${limit}, offset: ${offset}`);
       const blogs = await storage.getBlogs(limit, offset);
       console.log(`Got ${blogs.length} blogs from database`);
-
+      
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(blogs.map(async (blog) => {
         // Use MongoDB _id if available, otherwise fallback to id
         const blogId = blog._id ? blog._id.toString() : blog.id;
-
+        
         if (!blogId) {
           console.error(`Blog has no valid ID:`, blog);
           return {
@@ -286,26 +286,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isBookmarked: false
           };
         }
-
+        
         console.log(`Processing blog: ${blogId}, title: ${blog.title?.substring(0, 30)}`);
-
+        
         const likeCount = await storage.getLikeCount(blogId);
         const comments = await storage.getComments(blogId);
-
+        
         // If user is authenticated, check if they liked or bookmarked the blog
         let isLiked = false;
         let isBookmarked = false;
-
+        
         if (req.isAuthenticated() && req.user?._id) {
           const userId = req.user._id.toString();
           console.log(`Checking user ${userId} interactions with blog ${blogId}`);
-
+          
           isLiked = await storage.isLikedByUser(userId, blogId);
           isBookmarked = await storage.isBookmarkedByUser(userId, blogId);
-
+          
           console.log(`Blog ${blogId} interactions: isLiked=${isLiked}, isBookmarked=${isBookmarked}`);
         }
-
+        
         return {
           ...blog,
           likeCount,
@@ -314,35 +314,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isBookmarked
         };
       }));
-
+      
       res.json(enhancedBlogs);
     } catch (error) {
       console.error("Error fetching blogs:", error);
       res.status(500).json({ message: "Failed to fetch blogs" });
     }
   });
-
+  
   app.get("/api/blogs/feed", isAuthenticated, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-
+      
       // Ensure we have a valid user ID
       const currentUserId = req.user?._id?.toString();
       if (!currentUserId || currentUserId.length !== 24) {
         console.error("Invalid user ID for feed:", currentUserId);
         return res.status(400).json({ message: "Invalid user ID" });
       }
-
+      
       console.log(`Fetching feed for user ${currentUserId} with limit: ${limit}, offset: ${offset}`);
       const blogs = await storage.getBlogsByFollowing(currentUserId, limit, offset);
       console.log(`Got ${blogs.length} blogs for feed`);
-
+      
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(blogs.map(async (blog) => {
         // Use MongoDB _id if available, otherwise fallback to id
         const blogId = blog._id ? blog._id.toString() : blog.id;
-
+        
         if (!blogId) {
           console.error(`Blog in feed has no valid ID:`, blog);
           return {
@@ -353,16 +353,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isBookmarked: false
           };
         }
-
+        
         console.log(`Processing feed blog: ${blogId}, title: ${blog.title?.substring(0, 30)}`);
-
+        
         const likeCount = await storage.getLikeCount(blogId);
         const comments = await storage.getComments(blogId);
         const isLiked = await storage.isLikedByUser(currentUserId, blogId);
         const isBookmarked = await storage.isBookmarkedByUser(currentUserId, blogId);
-
+        
         console.log(`Feed blog ${blogId} interactions: isLiked=${isLiked}, isBookmarked=${isBookmarked}`);
-
+        
         return {
           ...blog,
           likeCount,
@@ -371,22 +371,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isBookmarked
         };
       }));
-
+      
       res.json(enhancedBlogs);
     } catch (error) {
       console.error("Error fetching feed:", error);
       res.status(500).json({ message: "Failed to fetch feed" });
     }
   });
-
+  
   app.get("/api/blogs/trending", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-
+      
       console.log(`Fetching trending blogs with limit: ${limit}`);
       const trendingBlogs = await storage.getTrendingBlogs(limit);
       console.log(`Got ${trendingBlogs.length} trending blogs`);
-
+      
       // If user is authenticated, check if they liked or bookmarked the blog
       if (req.isAuthenticated()) {
         // Ensure we have a valid user ID
@@ -396,11 +396,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Continue without user-specific data
           return res.json(trendingBlogs);
         }
-
+        
         const enhancedBlogs = await Promise.all(trendingBlogs.map(async (blog) => {
           // Use MongoDB _id if available, otherwise fallback to id
           const blogId = blog._id ? blog._id.toString() : blog.id;
-
+          
           if (!blogId) {
             console.error(`Trending blog has no valid ID:`, blog);
             return {
@@ -409,21 +409,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isBookmarked: false
             };
           }
-
+          
           console.log(`Processing trending blog: ${blogId}, title: ${blog.title?.substring(0, 30)}`);
-
+          
           const isLiked = await storage.isLikedByUser(currentUserId, blogId);
           const isBookmarked = await storage.isBookmarkedByUser(currentUserId, blogId);
-
+          
           console.log(`Trending blog ${blogId} interactions: isLiked=${isLiked}, isBookmarked=${isBookmarked}`);
-
+          
           return {
             ...blog,
             isLiked,
             isBookmarked
           };
         }));
-
+        
         res.json(enhancedBlogs);
       } else {
         res.json(trendingBlogs);
@@ -433,46 +433,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch trending blogs" });
     }
   });
-
+  
   // Trending hashtags endpoint
   app.get("/api/hashtags/trending", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
-
+      
       console.log(`Fetching trending hashtags with limit: ${limit}`);
       const trendingHashtags = await storage.getTrendingHashtags(limit);
       console.log(`Got ${trendingHashtags.length} trending hashtags`);
-
+      
       res.json(trendingHashtags);
     } catch (error) {
       console.error("Error fetching trending hashtags:", error);
       res.status(500).json({ message: "Failed to fetch trending hashtags" });
     }
   });
-
+  
   app.get("/api/blogs/user/:userId", async (req, res) => {
     try {
       const userId = req.params.userId;
-
+      
       console.log(`Fetching blogs for user ${userId}`);
-
+      
       // Validate userId format
       if (!userId || userId.length !== 24) {
         console.error("Invalid user ID format for blogs:", userId);
         return res.status(400).json({ message: "Invalid user ID format" });
       }
-
+      
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-
+      
       const blogs = await storage.getBlogsByUser(userId, limit, offset);
       console.log(`Got ${blogs.length} blogs for user ${userId}`);
-
+      
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(blogs.map(async (blog) => {
         // Use MongoDB _id if available, otherwise fallback to id
         const blogId = blog._id ? blog._id.toString() : blog.id;
-
+        
         if (!blogId) {
           console.error(`Blog in user list has no valid ID:`, blog);
           return {
@@ -483,16 +483,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isBookmarked: false
           };
         }
-
+        
         console.log(`Processing user blog: ${blogId}, title: ${blog.title?.substring(0, 30)}`);
-
+        
         const likeCount = await storage.getLikeCount(blogId);
         const comments = await storage.getComments(blogId);
-
+        
         // If user is authenticated, check if they liked or bookmarked the blog
         let isLiked = false;
         let isBookmarked = false;
-
+        
         if (req.isAuthenticated()) {
           // Ensure we have a valid user ID
           const currentUserId = req.user?._id?.toString();
@@ -504,7 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Invalid user ID for blog interaction check:", currentUserId);
           }
         }
-
+        
         return {
           ...blog,
           likeCount,
@@ -513,62 +513,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isBookmarked
         };
       }));
-
+      
       res.json(enhancedBlogs);
     } catch (error) {
       console.error("Error fetching user blogs:", error);
       res.status(500).json({ message: "Failed to fetch user blogs" });
     }
   });
-
+  
   app.get("/api/blogs/:id", async (req, res) => {
     try {
       const blogId = req.params.id;
-
+      
       console.log(`Fetching blog with ID: ${blogId}`);
-
+      
       // Validate blog ID format
       if (!blogId || blogId.length !== 24) {
         console.error("Invalid blog ID format:", blogId);
         return res.status(400).json({ message: "Invalid blog ID format" });
       }
-
+      
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         console.error(`Blog not found with ID: ${blogId}`);
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       console.log(`Found blog: ${blog.title}`);
-
+      
       // Use MongoDB _id consistently
       const mongoBlogId = blog._id ? blog._id.toString() : blogId;
-
+      
       const likeCount = await storage.getLikeCount(mongoBlogId);
       const comments = await storage.getComments(mongoBlogId);
-
+      
       console.log(`Blog stats: ${likeCount} likes, ${comments.length} comments`);
-
+      
       // If user is authenticated, check if they liked or bookmarked the blog
       let isLiked = false;
       let isBookmarked = false;
-
+      
       if (req.isAuthenticated()) {
         // Ensure we have a valid user ID
         const currentUserId = req.user?._id?.toString();
         if (currentUserId && currentUserId.length === 24) {
           console.log(`Checking if user ${currentUserId} liked/bookmarked blog ${mongoBlogId}`);
-
+          
           isLiked = await storage.isLikedByUser(currentUserId, mongoBlogId);
           isBookmarked = await storage.isBookmarkedByUser(currentUserId, mongoBlogId);
-
+          
           console.log(`Blog ${mongoBlogId} interactions: isLiked=${isLiked}, isBookmarked=${isBookmarked}`);
         } else {
           console.error("Invalid user ID for blog interaction check:", currentUserId);
         }
       }
-
+      
       res.json({
         ...blog,
         likeCount,
@@ -581,17 +581,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch blog" });
     }
   });
-
+  
   app.post("/api/blogs", isAuthenticated, async (req, res) => {
     try {
       console.log("Creating blog with authenticated user:", req.user);
       const validatedData = insertBlogSchema.parse(req.body);
-
+      
       const blog = await storage.createBlog({
         ...validatedData,
         authorId: req.user._id.toString() // Use _id instead of id for MongoDB
       });
-
+      
       // Broadcast to followers using MongoDB _id
       const currentUserId = req.user?._id?.toString();
       if (currentUserId) {
@@ -602,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           user: req.user
         });
       }
-
+      
       res.status(201).json(blog);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -612,28 +612,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create blog" });
     }
   });
-
+  
   app.put("/api/blogs/:id", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Compare with author's MongoDB _id
       const authorId = blog.author?._id?.toString();
       const currentUserId = req.user._id.toString();
-
+      
       if (authorId !== currentUserId) {
         return res.status(403).json({ message: "Not authorized to update this blog" });
       }
-
+      
       const validatedData = insertBlogSchema.parse(req.body);
-
+      
       const updatedBlog = await storage.updateBlog(blogId, validatedData);
-
+      
       res.json(updatedBlog);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -643,72 +643,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update blog" });
     }
   });
-
+  
   app.delete("/api/blogs/:id", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Compare with author's MongoDB _id
       const authorId = blog.author?._id?.toString();
       const currentUserId = req.user._id.toString();
-
+      
       if (authorId !== currentUserId) {
         return res.status(403).json({ message: "Not authorized to delete this blog" });
       }
-
+      
       await storage.deleteBlog(blogId);
-
+      
       res.status(204).end();
     } catch (error) {
       console.error("Error deleting blog:", error);
       res.status(500).json({ message: "Failed to delete blog" });
     }
   });
-
+  
   // Like Routes
   app.post("/api/blogs/:id/like", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       console.log("Like request for blog:", blogId);
-
+      
       // Validate blogId format
       if (!blogId || blogId.length !== 24) {
         console.error("Invalid blog ID format for like:", blogId);
         return res.status(400).json({ message: "Invalid blog ID format" });
       }
-
+      
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         console.error("Blog not found for like:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Ensure we have a proper MongoDB ID for the user
       const currentUserId = req.user._id?.toString();
       if (!currentUserId || currentUserId.length !== 24) {
         console.error("Invalid user ID for like:", currentUserId);
         return res.status(400).json({ message: "Invalid user ID" });
       }
-
+      
       console.log("Adding like:", { userId: currentUserId, blogId });
       const result = await storage.likeBlog(currentUserId, blogId);
-
+      
       if (!result) {
         console.error("Like operation failed");
         return res.status(500).json({ message: "Failed to like blog" });
       }
-
+      
       // Create notification if the user is not liking their own blog
       const authorId = blog.author?._id?.toString();
       if (authorId !== currentUserId) {
         console.log("Creating like notification for:", authorId);
-
+        
         try {
           const notification = await storage.createNotification({
             userId: authorId,
@@ -716,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: 'like',
             blogId
           });
-
+          
           // Broadcast notification to blog author
           broadcastToUser(authorId, {
             type: 'notification',
@@ -731,103 +731,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Continue even if notification fails
         }
       }
-
+      
       const likeCount = await storage.getLikeCount(blogId);
       console.log("Updated like count:", { blogId, likeCount });
-
+      
       res.json({ success: true, likeCount });
     } catch (error) {
       console.error("Error liking blog:", error);
       res.status(500).json({ message: "Failed to like blog" });
     }
   });
-
+  
   app.delete("/api/blogs/:id/like", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       console.log("Unlike request for blog:", blogId);
-
+      
       // Validate blogId format
       if (!blogId || blogId.length !== 24) {
         console.error("Invalid blog ID format for unlike:", blogId);
         return res.status(400).json({ message: "Invalid blog ID format" });
       }
-
+      
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         console.error("Blog not found for unlike:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Ensure we have a proper MongoDB ID for the user
       const currentUserId = req.user._id?.toString();
       if (!currentUserId || currentUserId.length !== 24) {
         console.error("Invalid user ID for unlike:", currentUserId);
         return res.status(400).json({ message: "Invalid user ID" });
       }
-
+      
       console.log("Removing like:", { userId: currentUserId, blogId });
       const result = await storage.unlikeBlog(currentUserId, blogId);
-
+      
       if (!result) {
         console.log("Nothing to unlike or operation failed");
         // We'll still return success even if nothing was unliked
       }
-
+      
       const likeCount = await storage.getLikeCount(blogId);
       console.log("Updated like count:", { blogId, likeCount });
-
+      
       res.json({ success: true, likeCount });
     } catch (error) {
       console.error("Error unliking blog:", error);
       res.status(500).json({ message: "Failed to unlike blog" });
     }
   });
-
+  
   // Comment Routes
   app.get("/api/blogs/:id/comments", async (req, res) => {
     try {
       const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       const comments = await storage.getComments(blogId);
-
+      
       res.json(comments);
     } catch (error) {
       console.error("Error fetching comments:", error);
       res.status(500).json({ message: "Failed to fetch comments" });
     }
   });
-
+  
   app.post("/api/blogs/:id/comments", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       const validatedData = insertCommentSchema.parse(req.body);
       const currentUserId = req.user._id.toString();
-
+      
       const comment = await storage.createComment({
         ...validatedData,
         userId: currentUserId,
         blogId
       });
-
+      
       // Fetch the user for the response
       const commentWithUser = {
         ...comment,
         user: req.user
       };
-
+      
       // Create notification if the user is not commenting on their own blog
       const authorId = blog.author?._id?.toString() || blog.authorId;
       if (authorId !== currentUserId) {
@@ -838,7 +838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           blogId,
           commentId: comment._id?.toString()
         });
-
+        
         // Broadcast notification to blog author
         broadcastToUser(blog.authorId, {
           type: 'notification',
@@ -850,7 +850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       }
-
+      
       // Broadcast to all clients viewing this blog
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -861,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }));
         }
       });
-
+      
       res.status(201).json(commentWithUser);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -871,16 +871,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create comment" });
     }
   });
-
+  
   app.delete("/api/comments/:id", isAuthenticated, async (req, res) => {
     try {
       const commentId = req.params.id;
       console.log("Deleting comment with ID:", commentId);
-
+      
       // Check if comment exists and belongs to user
       const comments = await storage.getComments(0); // This is inefficient but works for now
       console.log(`Found ${comments.length} comments total`);
-
+      
       const comment = comments.find(c => {
         const commentIdStr = c._id?.toString() || c.id?.toString();
         const match = commentIdStr === commentId;
@@ -894,62 +894,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         return match;
       });
-
-      if (!comment){
+      
+      if (!comment) {
         console.log(`No comment found with ID: ${commentId}`);
         return res.status(404).json({ message: "Comment not found" });
       }
-
+      
       const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
       console.log("Current user ID:", currentUserId);
-
+      
       const commentUserId = comment.user?._id?.toString() || comment.userId?.toString();
       console.log("Comment user ID:", commentUserId);
-
+      
       if (commentUserId !== currentUserId) {
         console.log("User not authorized - Comment belongs to:", commentUserId);
         return res.status(403).json({ message: "Not authorized to delete this comment" });
       }
-
+      
       const result = await storage.deleteComment(commentId);
       console.log("Delete comment result:", result);
-
+      
       res.status(204).end();
     } catch (error) {
       console.error("Error deleting comment:", error);
       res.status(500).json({ message: "Failed to delete comment", error: error instanceof Error ? error.message : String(error) });
     }
   });
-
+  
   // Bookmark Routes
   app.post("/api/blogs/:id/bookmark", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       console.log("Bookmark request for blog:", blogId);
-
+      
       // Validate blogId format
       if (!blogId || blogId.length !== 24) {
         console.error("Invalid blog ID format for bookmark:", blogId);
         return res.status(400).json({ message: "Invalid blog ID format" });
       }
-
+      
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         console.error("Blog not found for bookmark:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Ensure we have a proper MongoDB ID for the user
       const currentUserId = req.user._id?.toString();
       if (!currentUserId || currentUserId.length !== 24) {
         console.error("Invalid user ID for bookmark:", currentUserId);
         return res.status(400).json({ message: "Invalid user ID" });
       }
-
+      
       console.log("Adding bookmark:", { userId: currentUserId, blogId });
       const result = await storage.bookmarkBlog(currentUserId, blogId);
-
+      
       console.log("Bookmark result:", result);
       res.json({ success: result });
     } catch (error) {
@@ -957,35 +957,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to bookmark blog" });
     }
   });
-
+  
   app.delete("/api/blogs/:id/bookmark", isAuthenticated, async (req, res) => {
     try {
       const blogId = req.params.id;
       console.log("Unbookmark request for blog:", blogId);
-
+      
       // Validate blogId format
       if (!blogId || blogId.length !== 24) {
         console.error("Invalid blog ID format for unbookmark:", blogId);
         return res.status(400).json({ message: "Invalid blog ID format" });
       }
-
+      
       const blog = await storage.getBlog(blogId);
-
+      
       if (!blog) {
         console.error("Blog not found for unbookmark:", blogId);
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Ensure we have a proper MongoDB ID for the user
       const currentUserId = req.user._id?.toString();
       if (!currentUserId || currentUserId.length !== 24) {
         console.error("Invalid user ID for unbookmark:", currentUserId);
         return res.status(400).json({ message: "Invalid user ID" });
       }
-
+      
       console.log("Removing bookmark:", { userId: currentUserId, blogId });
       const result = await storage.unbookmarkBlog(currentUserId, blogId);
-
+      
       console.log("Unbookmark result:", result);
       res.json({ success: result });
     } catch (error) {
@@ -993,21 +993,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to remove bookmark" });
     }
   });
-
+  
   app.get("/api/bookmarks", isAuthenticated, async (req, res) => {
     try {
       const currentUserId = req.user._id.toString();
       const bookmarks = await storage.getBookmarks(currentUserId);
-
+      
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(bookmarks.map(async (blog) => {
         // Use _id if available, otherwise fallback to id
         const blogId = blog._id ? blog._id.toString() : blog.id;
-
+        
         const likeCount = await storage.getLikeCount(blogId);
         const comments = await storage.getComments(blogId);
         const isLiked = await storage.isLikedByUser(currentUserId, blogId);
-
+        
         return {
           ...blog,
           likeCount,
@@ -1016,44 +1016,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isBookmarked: true
         };
       }));
-
+      
       res.json(enhancedBlogs);
     } catch (error) {
       console.error("Error fetching bookmarks:", error);
       res.status(500).json({ message: "Failed to fetch bookmarks" });
     }
   });
-
+  
   // User Routes
   app.get("/api/users/:id", async (req, res) => {
     try {
       const userId = req.params.id;
-
+      
       // Early validation of userId before any DB operations
       if (!userId || userId === "undefined" || userId === "-1" || userId.length !== 24) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       const user = await storage.getUser(userId);
-
+      
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // Remove password from response
       const { password, ...userWithoutPassword } = user;
-
+      
       // Get follower and following counts
       const followers = await storage.getFollowers(userId);
       const following = await storage.getFollowing(userId);
-
+      
       // Check if current user is following this user
       let isFollowing = false;
       if (req.isAuthenticated() && req.user && req.user._id) {
         const currentUserId = req.user._id.toString();
         isFollowing = await storage.isFollowing(currentUserId, userId);
       }
-
+      
       res.json({
         ...userWithoutPassword,
         followerCount: followers.length,
@@ -1065,23 +1065,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
-
+  
   app.put("/api/users/profile", isAuthenticated, async (req, res) => {
     try {
       const { displayName, bio, profileImage, coverImage } = req.body;
-
+      
       console.log("Profile update request:", { displayName, bio, profileImage, coverImage });
       console.log("User object:", req.user);
-
+      
       // Use MongoDB _id instead of id property
       const userId = req.user._id ? req.user._id.toString() : undefined;
       console.log("Extracted userId:", userId);
-
+      
       if (!userId) {
         console.log("No userId found in the request, returning 401");
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       console.log("Calling storage.updateUser with userId:", userId);
       const updatedUser = await storage.updateUser(userId, {
         displayName,
@@ -1089,60 +1089,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileImage,
         coverImage
       });
-
+      
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // Remove password from response
       const { password, ...userWithoutPassword } = updatedUser;
-
+      
       res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error updating profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
   });
-
+  
   // Follow Routes
   app.post("/api/users/:id/follow", isAuthenticated, async (req, res) => {
     try {
       // For MongoDB, use the string ID directly (don't parseInt)
       const followingId = req.params.id;
-
+      
       console.log("Follow request - Current user:", req.user?._id);
       console.log("Follow request - User to follow:", followingId);
-
+      
       const userToFollow = await storage.getUser(followingId);
-
+      
       if (!userToFollow) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // For MongoDB, compare string IDs or ObjectIDs
       const currentUserId = req.user?._id?.toString();
       if (followingId === currentUserId) {
         return res.status(400).json({ message: "Cannot follow yourself" });
       }
-
+      
       await storage.followUser(currentUserId, followingId);
-
+      
       // Create notification
       console.log('Creating follow notification:', { 
         userId: followingId, 
         actorId: currentUserId, 
         type: 'follow' 
       });
-
+      
       try {
         const notification = await storage.createNotification({
           userId: followingId,
           actorId: currentUserId,
           type: 'follow'
         });
-
+        
         console.log('Created notification:', notification);
-
+        
         // Broadcast notification to followed user
         console.log('Broadcasting to user:', followingId);
         broadcastToUser(followingId, {
@@ -1155,69 +1155,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (err) {
         console.error('Error creating follow notification:', err);
       }
-
+      
       const followers = await storage.getFollowers(followingId);
-
+      
       res.json({ success: true, followerCount: followers.length });
     } catch (error) {
       console.error("Error following user:", error);
       res.status(500).json({ message: "Failed to follow user" });
     }
   });
-
+  
   app.delete("/api/users/:id/follow", isAuthenticated, async (req, res) => {
     try {
       // For MongoDB, use the string ID directly (don't parseInt)
       const followingId = req.params.id;
-
+      
       console.log("Unfollow request - Current user:", req.user?._id);
       console.log("Unfollow request - User to unfollow:", followingId);
-
+      
       const userToUnfollow = await storage.getUser(followingId);
-
+      
       if (!userToUnfollow) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // For MongoDB, use the string _id
       const currentUserId = req.user?._id?.toString();
       await storage.unfollowUser(currentUserId, followingId);
-
+      
       const followers = await storage.getFollowers(followingId);
-
+      
       res.json({ success: true, followerCount: followers.length });
     } catch (error) {
       console.error("Error unfollowing user:", error);
       res.status(500).json({ message: "Failed to unfollow user" });
     }
   });
-
+  
   app.get("/api/users/:id/followers", async (req, res) => {
     try {
       // For MongoDB, use the string ID directly
       const userId = req.params.id;
       console.log("Fetching followers for user:", userId);
-
+      
       const user = await storage.getUser(userId);
-
+      
       if (!user) {
         console.log("User not found:", userId);
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       const followers = await storage.getFollowers(userId);
       console.log(`Found ${followers.length} followers for user ${userId}`);
-
+      
       // If user is authenticated, check which followers they are following
       if (req.isAuthenticated() && req.user) {
         const currentUserId = req.user._id?.toString();
         console.log("Current authenticated user:", currentUserId);
-
+        
         const enhancedFollowers = await Promise.all(followers.map(async (follower) => {
           // Use MongoDB's _id instead of id property
           const followerId = follower._id ? follower._id.toString() : '';
           const isFollowing = await storage.isFollowing(currentUserId, followerId);
-
+          
           return {
             ...follower,
             isFollowing,
@@ -1225,7 +1225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isCurrentUser: followerId === currentUserId
           };
         }));
-
+        
         res.json(enhancedFollowers);
       } else {
         res.json(followers);
@@ -1235,19 +1235,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch followers" });
     }
   });
-
+  
   // Online status API endpoint
   app.get("/api/users/:id/status", async (req, res) => {
     try {
       const userId = req.params.id;
       const isOnline = isUserOnline(userId);
-
+      
       // Get last active time if available
       let lastActive = null;
       if (onlineUsers.has(userId)) {
         lastActive = onlineUsers.get(userId)?.lastActive;
       }
-
+      
       res.json({
         isOnline,
         lastActive,
@@ -1264,52 +1264,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For MongoDB, use the string ID directly
       const targetUserId = req.params.id;
       console.log("Checking if current user is following target user:", targetUserId);
-
+      
       // For MongoDB, use the _id property
       const currentUserId = req.user._id?.toString();
       console.log("Current user ID:", currentUserId);
-
+      
       if (!currentUserId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       // Check if the current user is following the target user
       const isFollowing = await storage.isFollowing(currentUserId, targetUserId);
       console.log(`isFollowing check result: ${isFollowing}`);
-
+      
       res.json({ isFollowing });
     } catch (error) {
       console.error("Error checking follow status:", error);
       res.status(500).json({ message: "Failed to check follow status" });
     }
   });
-
+  
   app.get("/api/users/:id/following", async (req, res) => {
     try {
       // For MongoDB, use the string ID directly
       const userId = req.params.id;
       console.log("Fetching following for user:", userId);
-
+      
       const user = await storage.getUser(userId);
-
+      
       if (!user) {
         console.log("User not found:", userId);
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       const following = await storage.getFollowing(userId);
       console.log(`Found ${following.length} following for user ${userId}`);
-
+      
       // If user is authenticated, check which users they are following
       if (req.isAuthenticated() && req.user) {
         const currentUserId = req.user._id?.toString();
         console.log("Current authenticated user:", currentUserId);
-
+        
         const enhancedFollowing = await Promise.all(following.map(async (followedUser) => {
           // Use MongoDB's _id instead of id property
           const followedUserId = followedUser._id ? followedUser._id.toString() : '';
           const isFollowing = await storage.isFollowing(currentUserId, followedUserId);
-
+          
           return {
             ...followedUser,
             isFollowing,
@@ -1317,7 +1317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isCurrentUser: followedUserId === currentUserId
           };
         }));
-
+        
         res.json(enhancedFollowing);
       } else {
         res.json(following);
@@ -1327,33 +1327,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch following" });
     }
   });
-
+  
   // Search Routes
   app.get("/api/search", async (req, res) => {
     try {
       const query = req.query.q as string;
-
+      
       if (!query || query.length < 1) {
         return res.status(400).json({ message: "Query parameter is required" });
       }
-
+      
       const users = await storage.searchUsers(query);
       const blogs = await storage.searchBlogs(query);
-
+      
       // Enhance blogs with like and comment counts
       const enhancedBlogs = await Promise.all(blogs.map(async (blog) => {
         const likeCount = await storage.getLikeCount(blog.id);
         const comments = await storage.getComments(blog.id);
-
+        
         // If user is authenticated, check if they liked or bookmarked the blog
         let isLiked = false;
         let isBookmarked = false;
-
+        
         if (req.isAuthenticated()) {
           isLiked = await storage.isLikedByUser(req.user.id, blog.id);
           isBookmarked = await storage.isBookmarkedByUser(req.user.id, blog.id);
         }
-
+        
         return {
           ...blog,
           likeCount,
@@ -1362,7 +1362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isBookmarked
         };
       }));
-
+      
       res.json({
         users,
         blogs: enhancedBlogs
@@ -1372,31 +1372,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to perform search" });
     }
   });
-
+  
   // Notification Routes
   app.get("/api/notifications", isAuthenticated, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-
+      
       console.log("Fetching notifications for user:", req.user?._id?.toString());
-
+      
       // For MongoDB, use the _id property
       const userId = req.user?._id?.toString();
       if (!userId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       const notifications = await storage.getNotifications(userId, limit, offset);
       console.log("Found notifications:", notifications?.length || 0);
-
+      
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ message: "Failed to fetch notifications" });
     }
   });
-
+  
   app.get("/api/notifications/unread/count", isAuthenticated, async (req, res) => {
     try {
       // For MongoDB, use the _id property
@@ -1404,34 +1404,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       console.log("Fetching unread notification count for user:", userId);
       const count = await storage.getUnreadNotificationCount(userId);
       console.log("Unread notification count:", count);
-
+      
       res.json({ count });
     } catch (error) {
       console.error("Error fetching unread notification count:", error);
       res.status(500).json({ message: "Failed to fetch unread notification count" });
     }
   });
-
+  
   app.post("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
     try {
       // For MongoDB, use the ID directly (no parseInt)
       const notificationId = req.params.id;
       console.log("Marking notification as read:", notificationId);
-
+      
       const result = await storage.markNotificationAsRead(notificationId);
       console.log("Mark notification as read result:", result);
-
+      
       res.json({ success: result });
     } catch (error) {
       console.error("Error marking notification as read:", error);
       res.status(500).json({ message: "Failed to mark notification as read" });
     }
   });
-
+  
   app.post("/api/notifications/read-all", isAuthenticated, async (req, res) => {
     try {
       // For MongoDB, use the _id property
@@ -1439,58 +1439,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       console.log("Marking all notifications as read for user:", userId);
       const result = await storage.markAllNotificationsAsRead(userId);
       console.log("Mark all notifications as read result:", result);
-
+      
       res.json({ success: result });
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
       res.status(500).json({ message: "Failed to mark all notifications as read" });
     }
   });
-
+  
   // Message Routes
   app.get("/api/messages/conversations", isAuthenticated, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       // For MongoDB, use the _id property as a string - handle both id and _id cases
       const userId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
       if (!userId) {
         console.error("User ID missing from authenticated user:", req.user);
         return res.status(401).json({ message: "User ID not found" });
       }
-
+      
       console.log(`Fetching conversations for user: ${userId}`);
       const conversations = await storage.getConversations(userId);
-
+      
       res.json(conversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       res.status(500).json({ message: "Failed to fetch conversations" });
     }
   });
-
+  
   // Special public user endpoint for message user information
   app.get("/api/users/message/:userId", async (req, res) => {
     try {
       const userId = req.params.userId;
-
+      
       // Early validation of userId before any DB operations
       if (!userId || userId === "undefined" || userId === "-1" || userId.length !== 24) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       const user = await storage.getUser(userId);
-
+      
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // Return just enough user data for message display
       res.json({
         _id: user._id,
@@ -1509,66 +1509,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       // For MongoDB, use the string ID directly
       const otherUserId = req.params.userId;
       console.log(`Fetching messages with user: ${otherUserId}`);
-
+      
       const otherUser = await storage.getUser(otherUserId);
       if (!otherUser) {
         console.error(`Other user not found: ${otherUserId}`);
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // For MongoDB, use the _id property as a string - handle both id and _id cases
       const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
       if (!currentUserId) {
         console.error("User ID missing from authenticated user:", req.user);
         return res.status(401).json({ message: "User ID not found" });
       }
-
+      
       console.log(`Getting messages between ${currentUserId} and ${otherUserId}`);
       const messages = await storage.getMessages(currentUserId, otherUserId);
-
+      
       // Mark messages from other user as read
       for (const message of messages) {
         if (message.senderId === otherUserId && !message.read) {
           await storage.markMessageAsRead(message._id.toString());
         }
       }
-
+      
       res.json(messages);
     } catch (error) {
       console.error("Error fetching messages:", error);
       res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
-
+  
   app.post("/api/messages/:userId", isAuthenticated, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       // For MongoDB, use the string ID directly
       const receiverId = req.params.userId;
       console.log(`API: Sending message to user: ${receiverId}`);
-
+      
       const receiver = await storage.getUser(receiverId);
       if (!receiver) {
         console.error(`Receiver not found: ${receiverId}`);
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       const validatedData = insertMessageSchema.parse(req.body);
-
+      
       // For MongoDB, use the _id property as a string - handle both id and _id cases
       const senderId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
       if (!senderId) {
         console.error("User ID missing from authenticated user:", req.user);
         return res.status(401).json({ message: "User ID not found" });
       }
-
+      
       // Check if the client is using this as a fallback and WebSocket is connected
       // This should be rare now with the client-side changes, but we still want to be cautious
       let isConnectedViaWebSocket = false;
@@ -1577,7 +1577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isConnectedViaWebSocket = true;
         }
       });
-
+      
       // If client is using a fallback despite being connected via WebSocket,
       // we should check if this is a duplicate of a very recent message
       if (isConnectedViaWebSocket) {
@@ -1589,31 +1589,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Message sent within the last 3 seconds
           (new Date().getTime() - new Date(msg.createdAt).getTime() < 3000)
         );
-
+        
         if (isDuplicate) {
           console.log(`Detected duplicate message via API, skipping: "${validatedData.content.substring(0, 20)}${validatedData.content.length > 20 ? '...' : ''}"`);
           // Return the most recent message instead of creating a duplicate
           return res.status(201).json(recentMessages[0]);
         }
       }
-
+      
       console.log(`API: Sending message from ${senderId} to ${receiverId}: "${validatedData.content.substring(0, 20)}${validatedData.content.length > 20 ? '...' : ''}"`);
-
+      
       const message = await storage.sendMessage({
         senderId,
         receiverId,
         content: validatedData.content
       });
-
+      
       console.log(`API: Message saved with ID: ${message._id}`);
-
+      
       // Broadcast message to receiver
       broadcastToUser(receiverId, {
         type: 'new_message',
         message,
         sender: req.user
       });
-
+      
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1623,7 +1623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to send message" });
     }
   });
-
+  
   // Move conversation deletion route above single message deletion
   // (order matters in Express, more specific routes should come first)
   // Share blog post via direct message
@@ -1632,32 +1632,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       // Get the receiver user ID from the params
       const receiverId = req.params.userId;
       console.log(`API: Sharing blog post with user: ${receiverId}`);
-
+      
       const receiver = await storage.getUser(receiverId);
       if (!receiver) {
         console.error(`Receiver not found: ${receiverId}`);
         return res.status(404).json({ message: "User not found" });
       }
-
+      
       // Validate the request body containing blog ID and optional message
       const { blogId, message } = req.body;
       if (!blogId) {
         return res.status(400).json({ message: "Blog ID is required" });
       }
-
+      
       // Verify the blog exists
       const blog = await storage.getBlog(blogId);
       if (!blog) {
         return res.status(404).json({ message: "Blog not found" });
       }
-
+      
       // Get the sender ID (current user)
       const senderId = req.user._id.toString();
-
+      
       // Create a JSON structure with blog details in the message content
       const blogPreview = {
         type: 'blog_share',
@@ -1673,19 +1673,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         userMessage: message && message.trim() ? message.trim() : ''
       };
-
+      
       // Convert to JSON string for storage
       const content = JSON.stringify(blogPreview);
-
+      
       // Send the message
       const sentMessage = await storage.sendMessage({
         senderId,
         receiverId,
         content
       });
-
+      
       console.log(`API: Blog share message saved with ID: ${sentMessage._id}`);
-
+      
       // Broadcast the message to the receiver if they're online
       broadcastToUser(receiverId, {
         type: 'new_message',
@@ -1695,7 +1695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         blogId: blog._id.toString(),
         blogPreview
       });
-
+      
       res.status(201).json({
         success: true,
         message: sentMessage
@@ -1710,10 +1710,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
       const otherUserId = req.params.userId;
-
+      
       // Use imported mongoose to access the Message model directly for efficient deletion
       const Message = mongoose.model('Message');
-
+      
       // Delete messages in both directions (sent and received)
       const result = await Message.deleteMany({
         $or: [
@@ -1721,20 +1721,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           { sender: otherUserId, receiver: currentUserId }
         ]
       });
-
+      
       // Broadcast deletion to both users
       broadcastToUser(currentUserId, {
         type: 'conversation_deleted',
         withUser: otherUserId,
         deletedCount: result.deletedCount
       });
-
+      
       broadcastToUser(otherUserId, {
         type: 'conversation_deleted',
         withUser: currentUserId,
         deletedCount: result.deletedCount
       });
-
+      
       res.status(200).json({ 
         message: 'Conversation deleted successfully',
         deletedCount: result.deletedCount
@@ -1744,56 +1744,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to delete conversation' });
     }
   });
-
+  
   // Delete a single message (this route needs to come after more specific routes)
   app.delete("/api/messages/:messageId", isAuthenticated, async (req, res) => {
     try {
       const messageId = req.params.messageId;
-
+      
       // For MongoDB, use the _id property as a string
       const currentUserId = req.user._id ? req.user._id.toString() : req.user.id?.toString();
-
+      
       // Get the message
       const message = await storage.getMessageById(messageId);
-
+      
       if (!message) {
         return res.status(404).json({ message: "Message not found" });
       }
-
+      
       // Check if user is authorized (message sender)
       if (String(message.senderId) !== currentUserId) {
         return res.status(403).json({ message: "Not authorized to delete this message" });
       }
-
+      
       // Delete the message
       const success = await storage.deleteMessage(messageId);
-
+      
       if (!success) {
         return res.status(500).json({ message: "Failed to delete message" });
       }
-
+      
       // Notify both users about the message deletion
       const otherUserId = String(message.senderId) === currentUserId 
         ? String(message.receiverId) 
         : String(message.senderId);
-
+      
       // Broadcast to both users
       broadcastToUser(currentUserId, {
         type: 'message_deleted',
-        messageId      });
-
+        messageId
+      });
+      
       broadcastToUser(otherUserId, {
         type: 'message_deleted',
         messageId
       });
-
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting message:", error);
       res.status(500).json({ message: "Failed to delete message" });
     }
   });
-
+  
 
 
   // Ensure uploads directory exists
@@ -1802,7 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fs.mkdirSync(uploadsDir, { recursive: true });
     console.log(`Created uploads directory at ${uploadsDir}`);
   }
-
+  
   // Set proper permissions on uploads directory
   try {
     fs.chmodSync(uploadsDir, 0o777);
@@ -1810,15 +1811,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (err) {
     console.error('Error setting permissions on uploads directory:', err);
   }
-
+  
   // Serve uploads directory for uploaded images
   app.use('/uploads', express.static(uploadsDir));
-
+  
   // Serve test upload HTML page
   app.get('/test-upload', (req, res) => {
     res.sendFile(path.join(process.cwd(), 'test-upload.html'));
   });
-
+  
   // Simple test upload endpoint - no authentication required
   app.post('/api/test-upload', upload.single('testFile'), (req, res) => {
     console.log("TEST UPLOAD ENDPOINT CALLED");
@@ -1844,7 +1845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
       const fileExists = fs.existsSync(fullPath);
       console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
-
+      
       if (!fileExists) {
         return res.status(500).json({ 
           success: false, 
@@ -1877,7 +1878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Request user:", req.user);
     console.log("Request file:", req.file ? "File present" : "No file");
     console.log("Request body:", req.body);
-
+    
     try {
       if (!req.file) {
         console.error("No file uploaded in profile image request");
@@ -1898,23 +1899,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
-
+      
       // Verify file exists on disk
       const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
       const fileExists = fs.existsSync(fullPath);
       console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
-
+      
       if (!fileExists) {
         return res.status(500).json({ 
           success: false, 
           message: 'File upload failed - file not found on disk' 
         });
       }
-
+      
       // Get user ID from the authenticated user
       const userId = req.user?._id?.toString();
       console.log("Profile image upload - User ID:", userId);
-
+      
       if (!userId) {
         console.error("No userId found in profile image upload request");
         return res.status(401).json({ 
@@ -1928,7 +1929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(userId, {
         profileImage: fileUrl
       });
-
+      
       if (!updatedUser) {
         console.error("Failed to update user with profile image URL");
         return res.status(500).json({ 
@@ -1936,7 +1937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Failed to update user profile" 
         });
       }
-
+      
       console.log("Profile image successfully updated for user:", userId);
 
       // Return the URL to the uploaded file
@@ -1960,7 +1961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Request user:", req.user);
     console.log("Request file:", req.file ? "File present" : "No file");
     console.log("Request body:", req.body);
-
+    
     try {
       if (!req.file) {
         console.error("No file uploaded in cover image request");
@@ -1978,26 +1979,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         path: req.file.path,
         size: req.file.size
       });
-
+      
       // Create relative URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
-
+      
       // Verify file exists on disk
       const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
       const fileExists = fs.existsSync(fullPath);
       console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
-
+      
       if (!fileExists) {
         return res.status(500).json({ 
           success: false, 
           message: 'File upload failed - file not found on disk' 
         });
       }
-
+      
       // Get user ID from the authenticated user
       const userId = req.user?._id?.toString();
       console.log("Cover image upload - User ID:", userId);
-
+      
       if (!userId) {
         console.error("No userId found in cover image upload request");
         return res.status(401).json({ 
@@ -2011,7 +2012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(userId, {
         coverImage: fileUrl
       });
-
+      
       if (!updatedUser) {
         console.error("Failed to update user with cover image URL");
         return res.status(500).json({ 
@@ -2019,7 +2020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Failed to update user profile" 
         });
       }
-
+      
       console.log("Cover image successfully updated for user:", userId);
 
       // Return the URL to the uploaded file
@@ -2037,14 +2038,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-
+  
   // Add blog image upload endpoint
   app.post('/api/upload/blog-image', isAuthenticated, upload.single('blogImage'), async (req, res) => {
     console.log("BLOG IMAGE UPLOAD ENDPOINT CALLED");
     console.log("Request user:", req.user);
     console.log("Request file:", req.file ? "File present" : "No file");
     console.log("Request body:", req.body);
-
+    
     try {
       if (!req.file) {
         console.error("No file uploaded in blog image request");
@@ -2065,12 +2066,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create relative URL to uploaded file
       const imageUrl = `/uploads/${req.file.filename}`;
-
+      
       // Verify file exists on disk
       const fullPath = path.join(process.cwd(), 'uploads', req.file.filename);
       const fileExists = fs.existsSync(fullPath);
       console.log(`File existence check (${fullPath}):`, fileExists ? "EXISTS" : "MISSING");
-
+      
       if (!fileExists) {
         return res.status(500).json({ 
           success: false, 
@@ -2093,45 +2094,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-
-  // Get unread notification count
-  app.get("/api/notifications/unread/count", isAuthenticated, async (req, res) => {
-    try {
-      // For MongoDB, use the _id property
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      console.log("Fetching unread notification count for user:", userId);
-      const count = await storage.getUnreadNotificationCount(userId);
-      console.log("Unread notification count:", count);
-
-      res.json({ count });
-    } catch (error) {
-      console.error("Error fetching unread notification count:", error);
-      res.status(500).json({ message: "Failed to fetch unread notification count" });
-    }
-  });
-
-  // Get unread messages count
-  app.get("/api/messages/unread/count", isAuthenticated, async (req, res) => {
-    try {
-      // For MongoDB, use the _id property
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      console.log(`Fetching unread messages count for user: ${userId}`);
-      const count = await storage.getUnreadMessagesCount(userId);
-      console.log(`Unread messages count: ${count}`);
-      res.json({ count });
-    } catch (error) {
-      console.error("Error getting unread messages count:", error);
-      res.status(500).json({ message: "Failed to get unread messages count" });
-    }
-  });
-
+  
   return httpServer;
 }

@@ -32,14 +32,7 @@ export default function Sidebar() {
     enabled: !!user,
   });
   
-  // Get unread messages count
-  const { data: messagesData } = useQuery({
-    queryKey: ["/api/messages/unread/count"],
-    enabled: !!user,
-  });
-  
   const unreadNotificationCount = notificationData?.count || 0;
-  const unreadMessagesCount = messagesData?.count || 0;
   
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -54,12 +47,7 @@ export default function Sidebar() {
       label: "Notifications",
       badge: unreadNotificationCount > 0 ? unreadNotificationCount : undefined
     },
-    { 
-      path: "/messages", 
-      icon: <MessageSquare className="h-6 w-6" />, 
-      label: "Messages",
-      badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined
-    },
+    { path: "/messages", icon: <MessageSquare className="h-6 w-6" />, label: "Messages" },
     { path: "/bookmarks", icon: <Bookmark className="h-6 w-6" />, label: "Bookmarks" },
     { path: `/profile/${user?.id}`, icon: <User className="h-6 w-6" />, label: "Profile" },
   ];
