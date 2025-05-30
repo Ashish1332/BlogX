@@ -54,7 +54,7 @@ export default function MessagesPage() {
     null,
   );
   const [localMessages, setLocalMessages] = useState<any[]>([]);
-  
+
   // Instagram-style blog preview states
   const [previewBlog, setPreviewBlog] = useState<any>(null);
   const [showBlogPreview, setShowBlogPreview] = useState(false);
@@ -176,7 +176,7 @@ export default function MessagesPage() {
       }
     }) => {
       const { receiverId, content, messageType = 'text', sharedBlogId, sharedBlogPreview } = messageData;
-      
+
       if (!receiverId) throw new Error("No recipient selected");
 
       // Try real-time delivery via WebSocket first, but don't send via API if successful
@@ -189,9 +189,9 @@ export default function MessagesPage() {
               sharedBlogPreview
             }
           : undefined;
-          
+
         const sent = webSocketService.sendDirectMessage(receiverId, content, wsOptions);
-        
+
         if (sent) {
           console.log("Message sent via WebSocket - server will persist");
           // Return a temporary placeholder message object
@@ -220,7 +220,7 @@ export default function MessagesPage() {
           sharedBlogPreview
         } : {})
       };
-      
+
       const res = await apiRequest("POST", `/api/messages/${receiverId}`, apiPayload);
       return await res.json();
     },
@@ -333,11 +333,11 @@ export default function MessagesPage() {
     // Detect if this is a blog share message
     const blogLinkPattern = /Check out this blog: "([^"]+)"[^\/]*Link: \/blog\/([a-zA-Z0-9]+)/;
     const match = currentMessage.match(blogLinkPattern);
-    
+
     if (match) {
       // This is a blog link that should be converted to a rich blog post
       const [_, title, blogId] = match;
-      
+
       // Send as a rich blog share message
       sendMessageMutation.mutate({
         receiverId: id as string,
@@ -442,13 +442,13 @@ export default function MessagesPage() {
           }} 
         />
       )}
-      
-      <div className="flex h-[calc(100vh-16rem)]">
+
+      <div className="flex h-[calc(100vh-4rem)]">
         {/* Conversations List */}
         <div
           className={`w-80 border-r border-border ${id ? "hidden md:block" : "block"}`}
         >
-          <div className="p-4 border-b border-border flex justify-between items-center">
+          <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
             <h2 className="font-bold text-lg">Messages</h2>
 
             {/* New Message Button */}
@@ -866,7 +866,7 @@ export default function MessagesPage() {
                                         content: msg.sharedBlogPreview?.excerpt || "",
                                         image: msg.sharedBlogPreview?.image
                                       };
-                                      
+
                                       // Set the blog data and open preview dialog
                                       setPreviewBlog(blogData);
                                       setShowBlogPreview(true);
@@ -887,33 +887,33 @@ export default function MessagesPage() {
                                       <FileText className="w-10 h-10 text-primary/50" />
                                     </div>
                                   )}
-                                  
+
                                   {/* Blog preview content area */}
                                   <div className="p-3">
                                     {/* Blog title */}
                                     <h4 className="font-semibold text-sm mb-1 line-clamp-2">
                                       {msg.sharedBlogPreview?.title || msg.sharedBlog?.title || "Shared blog post"}
                                     </h4>
-                                    
+
                                     {/* Blog excerpt */}
                                     <p className="text-xs text-muted-foreground mb-2 line-clamp-3">
                                       {msg.sharedBlogPreview?.excerpt || 
                                        (msg.sharedBlog?.content && msg.sharedBlog.content.substring(0, 100) + "...") || 
                                        "Click to view the full blog post"}
                                     </p>
-                                    
+
                                     <div className="flex items-center justify-between mt-2">
                                       <span className="text-xs font-medium text-primary flex items-center gap-1">
                                         <MessageSquare className="w-3 h-3" /> View post
                                       </span>
-                                      
+
                                       <div className="text-xs text-muted-foreground">
                                         blogx.com
                                       </div>
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 {/* Message content as caption */}
                                 {msg.content && msg.content !== `Check out this blog: "${msg.sharedBlogPreview?.title}"` && (
                                   <p className="whitespace-pre-wrap break-words mb-1">
@@ -935,23 +935,23 @@ export default function MessagesPage() {
                                     {(() => {
                                       const blogIdMatch = msg.content.match(/\/blog\/([a-zA-Z0-9]+)/);
                                       const titleMatch = msg.content.match(/"([^"]+)"/);
-                                      
+
                                       const blogId = blogIdMatch ? blogIdMatch[1] : null;
                                       const blogTitle = titleMatch ? titleMatch[1] : "Shared blog post";
-                                      
+
                                       if (blogId) {
                                         // Create blog data for the preview - we'll fetch the full content when it's opened
                                         const blogData = {
                                           _id: blogId,
                                           title: blogTitle
                                         };
-                                        
+
                                         return (
                                           <>
                                             {/* Instagram-style shared blog preview */}
                                             <div 
                                               className="border border-border rounded-lg overflow-hidden bg-background text-foreground cursor-pointer shadow-sm mb-2 max-w-[280px] hover:bg-accent/50 transition-colors"
-                                              onClick={() => {
+                                              onClick={(){
                                                 // Set the blog data and open preview dialog
                                                 setPreviewBlog(blogData);
                                                 setShowBlogPreview(true);
@@ -960,7 +960,7 @@ export default function MessagesPage() {
                                               <div className="w-full h-20 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
                                                 <FileText className="w-10 h-10 text-primary/50" />
                                               </div>
-                                              
+
                                               {/* Blog preview content area */}
                                               <div className="p-3">
                                                 <h4 className="font-semibold text-sm mb-1 line-clamp-2">
@@ -987,7 +987,7 @@ export default function MessagesPage() {
                                           </>
                                         );
                                       }
-                                      
+
                                       return null;
                                     })()}
                                   </div>
@@ -1006,7 +1006,7 @@ export default function MessagesPage() {
                                 )}
                               </>
                             )}
-                            
+
 
                             {/* Message deletion button */}
                             {isFromCurrentUser && (
@@ -1185,7 +1185,7 @@ export default function MessagesPage() {
                         onSelectBlog={(blog) => {
                           // Close dialog programmatically
                           document.querySelector('[data-state="open"] button[data-dismiss]')?.click();
-                          
+
                           if (!id) {
                             toast({
                               title: "Cannot share blog",
@@ -1194,25 +1194,25 @@ export default function MessagesPage() {
                             });
                             return;
                           }
-                          
+
                           // Create rich blog preview data with proper excerpt
                           const generateExcerpt = (content: string) => {
                             if (!content) return "";
-                            
+
                             // Keep first paragraph but truncate if too long
                             const firstParagraphMatch = content.match(/^.*?(\n|$)/);
                             const firstParagraph = firstParagraphMatch ? firstParagraphMatch[0].trim() : content;
-                            
+
                             if (firstParagraph.length <= 150) return firstParagraph;
                             return firstParagraph.substring(0, 150).trim() + "...";
                           };
-                          
+
                           const excerpt = generateExcerpt(blog.content);
-                          
+
                           // Message caption - use current message if any, or default caption
                           const defaultCaption = `Check out this blog post: "${blog.title}"`;
                           const messageContent = currentMessage.trim() || defaultCaption;
-                          
+
                           // Send the message with rich blog preview
                           sendMessageMutation.mutate({
                             receiverId: id,
@@ -1225,7 +1225,7 @@ export default function MessagesPage() {
                               image: blog.image
                             }
                           });
-                          
+
                           // Clear message input
                           setCurrentMessage('');
                         }}
@@ -1233,7 +1233,7 @@ export default function MessagesPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                
+
                 {/* Send button */}
                 <Button
                   type="submit"
@@ -1279,12 +1279,12 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
   const { toast } = useToast();
   const [fullBlogData, setFullBlogData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  
+
   // Fetch full blog data if we only have ID
   useEffect(() => {
     if (isOpen && blog?._id && !blog.content) {
       setLoading(true);
-      
+
       fetch(`/api/blogs/${blog._id}`)
         .then(res => {
           if (!res.ok) {
@@ -1307,12 +1307,12 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
         });
     }
   }, [isOpen, blog?._id, toast]);
-  
+
   if (!blog || !isOpen) return null;
-  
+
   // Use full blog data if available, otherwise use the basic blog props
   const blogData = fullBlogData || blog;
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[650px]">
@@ -1321,7 +1321,7 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
             <span className="text-xl">{blogData.title}</span>
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           {/* Blog image */}
           <div className="w-full overflow-hidden rounded-md">
@@ -1341,12 +1341,12 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
               </div>
             )}
           </div>
-          
+
           {/* Blog content */}
           <div className="flex flex-col h-64 overflow-y-auto">
             <div className="prose prose-sm dark:prose-invert">
               <h3 className="text-xl font-bold mb-2">{blogData.title}</h3>
-              
+
               {loading ? (
                 <div className="flex flex-col gap-2">
                   <div className="h-4 bg-secondary/50 rounded animate-pulse w-full"></div>
@@ -1361,13 +1361,13 @@ function BlogPreviewDialog({ blog, isOpen, onClose }: {
             </div>
           </div>
         </div>
-        
+
         {/* Action buttons */}
         <div className="flex justify-between items-center mt-4">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          
+
           <Button 
             onClick={() => {
               // Navigate to the full blog page
@@ -1442,21 +1442,21 @@ interface BlogSharePickerProps {
 function BlogSharePicker({ onSelectBlog }: BlogSharePickerProps) {
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<"my" | "bookmarks">("my");
-  
+
   // Query for user's blogs
   const { data: myBlogs, isLoading: myBlogsLoading } = useQuery({
     queryKey: [`/api/blogs/user/${user?._id}`],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!user?._id,
   });
-  
+
   // Query for bookmarked blogs
   const { data: bookmarkedBlogs, isLoading: bookmarksLoading } = useQuery({
     queryKey: ['/api/bookmarks'],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!user?._id,
   });
-  
+
   return (
     <div className="w-full">
       <Tabs defaultValue="my" onValueChange={(value) => setSelectedTab(value as "my" | "bookmarks")}>
@@ -1552,7 +1552,7 @@ function BlogShareCard({ blog, onSelect }: BlogShareCardProps) {
           <FileText className="w-8 h-8 text-primary/60" />
         </div>
       )}
-      
+
       {/* Blog content */}
       <div className="p-3 flex-1 min-w-0">
         <h4 className="font-semibold text-sm mb-1 truncate">{blog.title}</h4>
