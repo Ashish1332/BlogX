@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      min-height: 100px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test File Upload</h1>
+  
+  <div class="form-group">
+    <h2>1. Test Upload API</h2>
+    <form id="testUploadForm" enctype="multipart/form-data">
+      <label for="testFile">Select a file:</label>
+      <input type="file" id="testFile" name="testFile">
+      <button type="submit">Upload Test File</button>
+    </form>
+  </div>
+
+  <div class="form-group">
+    <h2>2. Profile Image Upload</h2>
+    <form id="profileImageForm" enctype="multipart/form-data">
+      <label for="profileImage">Select profile image:</label>
+      <input type="file" id="profileImage" name="profileImage" accept="image/*">
+      <button type="submit">Upload Profile Image</button>
+    </form>
+  </div>
+
+  <div class="form-group">
+    <h2>3. Cover Image Upload</h2>
+    <form id="coverImageForm" enctype="multipart/form-data">
+      <label for="coverImage">Select cover image:</label>
+      <input type="file" id="coverImage" name="coverImage" accept="image/*">
+      <button type="submit">Upload Cover Image</button>
+    </form>
+  </div>
+
+  <div class="result" id="result">
+    <p>Results will appear here</p>
+  </div>
+
+  <script>
+    // Helper function to display results
+    function showResult(title, data) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `<h3>${title}</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+    }
+
+    // Helper function to show errors
+    function showError(title, error) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `<h3>${title} - Error</h3><pre style="color: red">${error}</pre>`;
+    }
+
+    // Test Upload Form
+    document.getElementById('testUploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('testFile');
+      
+      if (!fileInput.files.length) {
+        showError('Test Upload', 'Please select a file first');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('testFile', fileInput.files[0]);
+      
+      try {
+        const response = await fetch('/api/test-upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server error ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        showResult('Test Upload Success', result);
+      } catch (error) {
+        showError('Test Upload', error.toString());
+      }
+    });
+
+    // Profile Image Form
+    document.getElementById('profileImageForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('profileImage');
+      
+      if (!fileInput.files.length) {
+        showError('Profile Image Upload', 'Please select a file first');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('profileImage', fileInput.files[0]);
+      
+      try {
+        const response = await fetch('/api/upload/profile-image', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server error ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        showResult('Profile Image Upload Success', result);
+      } catch (error) {
+        showError('Profile Image Upload', error.toString());
+      }
+    });
+
+    // Cover Image Form
+    document.getElementById('coverImageForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('coverImage');
+      
+      if (!fileInput.files.length) {
+        showError('Cover Image Upload', 'Please select a file first');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('coverImage', fileInput.files[0]);
+      
+      try {
+        const response = await fetch('/api/upload/cover-image', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server error ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        showResult('Cover Image Upload Success', result);
+      } catch (error) {
+        showError('Cover Image Upload', error.toString());
+      }
+    });
+  </script>
+</body>
+</html>

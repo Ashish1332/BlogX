@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: blog-app-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        fromGroup: blog-app-secrets
+      - key: SESSION_SECRET
+        fromGroup: blog-app-secrets
+      - key: CLIENT_URL
+        fromGroup: blog-app-secrets

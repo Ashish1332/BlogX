@@ -1,0 +1,63 @@
+==> Cloning from https://github.com/Ashish1332/BlogX
+==> Checking out commit 1cb79256841b123616f1d3163a0433fffa45aca3 in branch main
+==> Requesting Node.js version >=18.0.0
+==> Using Node.js version 24.1.0 via /opt/render/project/src/server-deploy/package.json
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Using Bun version 1.1.0 (default)
+==> Docs on specifying a bun version: https://render.com/docs/bun-version
+==> Running build command 'npm install; npm run build'...
+added 210 packages, and audited 211 packages in 22s
+21 packages are looking for funding
+  run npm fund for details
+1 moderate severity vulnerability
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run npm audit for details.
+> blog-app-server@1.0.0 build
+> esbuild index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+  dist/index.js  101.2kb
+⚡ Done in 9ms
+==> Uploading build...
+==> Uploaded in 4.3s. Compression took 1.1s
+==> Build successful 🎉
+==> Deploying...
+==> Running 'npm run start'
+> blog-app-server@1.0.0 start
+> node dist/index.js
+node:internal/modules/package_json_reader:255
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@shared/schema' imported from /opt/render/project/src/server-deploy/dist/index.js
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:255:9)
+    at packageResolve (node:internal/modules/esm/resolve:767:81)
+    at moduleResolve (node:internal/modules/esm/resolve:853:18)
+    at defaultResolve (node:internal/modules/esm/resolve:983:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:799:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:723:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:706:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at #link (node:internal/modules/esm/module_job:170:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+Node.js v24.1.0
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'npm run start'
+> blog-app-server@1.0.0 start
+> node dist/index.js
+node:internal/modules/package_json_reader:255
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@shared/schema' imported from /opt/render/project/src/server-deploy/dist/index.js
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:255:9)
+    at packageResolve (node:internal/modules/esm/resolve:767:81)
+    at moduleResolve (node:internal/modules/esm/resolve:853:18)
+    at defaultResolve (node:internal/modules/esm/resolve:983:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:799:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:723:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:706:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at #link (node:internal/modules/esm/module_job:170:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+Node.js v24.1.0

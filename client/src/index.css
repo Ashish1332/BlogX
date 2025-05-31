@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 33% 12%;
+    --foreground: 0 0% 98%;
+    
+    --card: 210 33% 15%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 210 33% 15%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 202 89% 53%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 210 33% 25%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 210 20% 34%;
+    --muted-foreground: 209 22% 65%;
+    
+    --accent: 210 33% 25%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 210 34% 28%;
+    --input: 210 34% 28%;
+    --ring: 210 34% 28%;
+    
+    --radius: 1rem;
+
+    --sidebar-background: 210 33% 12%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 202 89% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 33% 25%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 210 34% 28%;
+    --sidebar-ring: 210 34% 28%;
+
+    --chart-1: 202 89% 53%;
+    --chart-2: 10 73% 59%;
+    --chart-3: 130 73% 50%;
+    --chart-4: 43 74% 49%;
+    --chart-5: 272 51% 54%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* Twitter/BlogX Style Customizations */
+  .blog-content {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .blog-content.expanded {
+    -webkit-line-clamp: unset;
+  }
+
+  /* Notification badge styles are now defined inline in components */
+
+  /* Hover Animation */
+  .hover-animate {
+    @apply transition-all duration-200;
+  }
+
+  /* Custom Scrollbar */
+  .messages-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .messages-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .messages-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--muted);
+    border-radius: 20px;
+  }
+
+  .messages-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--secondary);
+  }
+}
