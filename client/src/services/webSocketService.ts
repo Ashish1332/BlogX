@@ -1,4 +1,5 @@
 import { queryClient } from "@/lib/queryClient";
+import { API_BASE_URL } from "@/lib/config";
 
 type WebSocketMessage = {
   type: string;
@@ -34,9 +35,8 @@ class WebSocketService {
 
     this.userId = userId;
     
-    // Determine the right protocol (ws/wss) based on current protocol (http/https)
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // Use WebSocket URL based on API configuration
+    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/ws';
     
     console.log('Connecting to WebSocket server at:', wsUrl);
     
